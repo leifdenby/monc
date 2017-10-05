@@ -36,8 +36,12 @@ module forcing_mod
   real(kind=DEFAULT_PRECISION), allocatable :: dq_profile(:) ! Local profile to be used in the time-indpendent forcing
   real(kind=DEFAULT_PRECISION), allocatable :: du_profile(:) ! Local profile to be used in the time-indpendent forcing
   real(kind=DEFAULT_PRECISION), allocatable :: dv_profile(:) ! Local profile to be used in the time-indpendent forcing
+  ! profile_diag arrays used to store the change in field due to forcing
   real(kind=DEFAULT_PRECISION), allocatable :: du_profile_diag(:), dv_profile_diag(:), dtheta_profile_diag(:), &
        dq_profile_diag(:,:)
+  ! subs_profile_diag arrays used to store the change in field due to subsidence
+  real(kind=DEFAULT_PRECISION), allocatable :: du_subs_profile_diag(:), dv_subs_profile_diag(:), & 
+       dtheta_subs_profile_diag(:), dq_subs_profile_diag(:,:)
 
   real(kind=DEFAULT_PRECISION) :: forcing_timescale_theta ! Timescale for forcing of theta
   real(kind=DEFAULT_PRECISION) :: forcing_timescale_q     ! Timescale for forcing of q
@@ -68,6 +72,8 @@ module forcing_mod
 
   character(len=STRING_LENGTH), dimension(:), allocatable :: names_force_pl_q  ! names of q variables to force
 
+  integer :: iqv=0, iql=0, iqr=0, iqi=0, iqs=0, iqg=0
+
   public forcing_get_descriptor
 
 contains
@@ -83,16 +89,27 @@ contains
 
     forcing_get_descriptor%field_value_retrieval=>field_value_retrieval_callback
     forcing_get_descriptor%field_information_retrieval=>field_information_retrieval_callback
-    allocate(forcing_get_descriptor%published_fields(8))
+    allocate(forcing_get_descriptor%published_fields(18))
 
     forcing_get_descriptor%published_fields(1)="u_subsidence"
     forcing_get_descriptor%published_fields(2)="v_subsidence"
     forcing_get_descriptor%published_fields(3)="th_subsidence"
-    forcing_get_descriptor%published_fields(4)="q_subsidence"
-    forcing_get_descriptor%published_fields(5)="u_large_scale"
-    forcing_get_descriptor%published_fields(6)="v_large_scale"
-    forcing_get_descriptor%published_fields(7)="th_large_scale"
-    forcing_get_descriptor%published_fields(8)="q_large_scale"
+    forcing_get_descriptor%published_fields(4)="vapour_mmr_subsidence"
+    forcing_get_descriptor%published_fields(5)="cloud_mmr_subsidence"
+    forcing_get_descriptor%published_fields(6)="rain_mmr_subsidence"
+    forcing_get_descriptor%published_fields(7)="ice_mmr_subsidence"
+    forcing_get_descriptor%published_fields(8)="snow_mmr_subsidence"
+    forcing_get_descriptor%published_fields(9)="graupel_mmr_subsidence"
+    forcing_get_descriptor%published_fields(10)="u_large_scale"
+    forcing_get_descriptor%published_fields(11)="v_large_scale"
+    forcing_get_descriptor%published_fields(12)="th_large_scale"
+    forcing_get_descriptor%published_fields(13)="vapour_mmr_large_scale"
+    forcing_get_descriptor%published_fields(14)="cloud_mmr_large_scale"
+    forcing_get_descriptor%published_fields(15)="rain_mmr_large_scale"
+    forcing_get_descriptor%published_fields(16)="ice_mmr_large_scale"
+    forcing_get_descriptor%published_fields(17)="snow_mmr_large_scale"
+    forcing_get_descriptor%published_fields(18)="graupel_mmr_large_scale"
+
   end function forcing_get_descriptor
 
   !> Field information retrieval callback, this returns information for a specific components published field
@@ -118,21 +135,46 @@ contains
     else if (name .eq. "th_subsidence") then
       field_information%enabled=current_state%th%active .and. l_subs_pl_theta .and. &
            allocated(current_state%global_grid%configuration%vertical%olzthbar)
-    else if (name .eq. "q_subsidence") then
-      field_information%number_dimensions=2
-      field_information%dimension_sizes(2)=current_state%number_q_fields
-      field_information%enabled=current_state%number_q_fields .gt. 0 .and. l_subs_pl_q .and. &
+    else if (name .eq. "vapour_mmr_subsidence" .or. name .eq. "vapour_mmr_subsidence"  .or.  & 
+         name .eq. "cloud_mmr_subsidence" .or. name .eq. "cloud_mmr_subsidence" ) then
+       field_information%enabled=.not. current_state%passive_q .and. & 
+            current_state%number_q_fields .gt. 0 .and. l_subs_pl_q .and. &
            allocated(current_state%global_grid%configuration%vertical%olzqbar)
+    else if (name .eq. "rain_mmr_subsidence" ) then
+        field_information%enabled=current_state%rain_water_mixing_ratio_index .gt. 0 .and. &
+             allocated(current_state%global_grid%configuration%vertical%olzqbar)   
+    else if (name .eq. "ice_mmr_subsidence" ) then
+       field_information%enabled=  current_state%ice_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar)     
+    else if (name .eq. "snow_mmr_subsidence" ) then
+       field_information%enabled=  current_state%snow_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar) 
+    else if (name .eq. "graupel_mmr_subsidence" ) then
+       field_information%enabled=  current_state%graupel_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar)            
     else if (name .eq. "u_large_scale") then
       field_information%enabled=current_state%u%active .and. l_constant_forcing_u
     else if (name .eq. "v_large_scale") then
       field_information%enabled=current_state%v%active .and. l_constant_forcing_v
     else if (name .eq. "th_large_scale") then
-      field_information%enabled=current_state%th%active .and. l_constant_forcing_theta
-    else if (name .eq. "q_large_scale") then
-      field_information%number_dimensions=2
-      field_information%dimension_sizes(2)=current_state%number_q_fields
-      field_information%enabled=current_state%number_q_fields .gt. 0 .and. l_constant_forcing_q
+       field_information%enabled=current_state%th%active .and. l_constant_forcing_theta
+    else if (name .eq. "vapour_mmr_large_scale" .or. name .eq. "vapour_mmr_large_scale"  .or.   & 
+         name .eq. "cloud_mmr_large_scale" .or. name .eq. "cloud_mmr_large_scale" ) then
+       field_information%enabled=.not. current_state%passive_q .and. & 
+            current_state%number_q_fields .gt. 0 .and. l_subs_pl_q .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar)
+    else if (name .eq. "rain_mmr_large_scale" ) then
+       field_information%enabled=current_state%rain_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar)   
+    else if (name .eq. "ice_mmr_large_scale" ) then
+       field_information%enabled=  current_state%ice_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar)     
+    else if (name .eq. "snow_mmr_large_scale" ) then
+       field_information%enabled=  current_state%snow_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar) 
+    else if (name .eq. "graupel_mmr_large_scale" ) then
+       field_information%enabled=  current_state%graupel_water_mixing_ratio_index .gt. 0 .and. &
+            allocated(current_state%global_grid%configuration%vertical%olzqbar)            
     end if   
   end subroutine field_information_retrieval_callback
 
@@ -149,62 +191,35 @@ contains
 
     column_size=current_state%local_grid%size(Z_INDEX)
 
+    ! subsidence diagnostics
     if (name .eq. "u_subsidence") then
-      allocate(field_value%real_1d_array(column_size))
-      do k=2, column_size-1
-        field_value%real_1d_array(k)=0.0_DEFAULT_PRECISION-2.0*&
-             current_state%global_grid%configuration%vertical%w_subs(k-1)*&
-             current_state%global_grid%configuration%vertical%tzc1(k)*(&
-             current_state%global_grid%configuration%vertical%olzubar(k)-&
-             current_state%global_grid%configuration%vertical%olzubar(k-1))+&
-             current_state%global_grid%configuration%vertical%w_subs(k)*&
-             current_state%global_grid%configuration%vertical%tzc2(k)*&
-             (current_state%global_grid%configuration%vertical%olzubar(k+1)-&
-             current_state%global_grid%configuration%vertical%olzubar(k))
-      end do
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=du_subs_profile_diag(:)
     else if (name .eq. "v_subsidence") then
-      allocate(field_value%real_1d_array(column_size))
-      do k=2, column_size-1
-        field_value%real_1d_array(k)=0.0_DEFAULT_PRECISION-2.0*&
-             current_state%global_grid%configuration%vertical%w_subs(k-1)*&
-             current_state%global_grid%configuration%vertical%tzc1(k)*(&
-             current_state%global_grid%configuration%vertical%olzvbar(k)-&
-             current_state%global_grid%configuration%vertical%olzvbar(k-1))+&
-             current_state%global_grid%configuration%vertical%w_subs(k)*&
-             current_state%global_grid%configuration%vertical%tzc2(k)*(&
-             current_state%global_grid%configuration%vertical%olzvbar(k+1)-&
-             current_state%global_grid%configuration%vertical%olzvbar(k))
-      end do
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dv_subs_profile_diag(:)
     else if (name .eq. "th_subsidence") then
-      allocate(field_value%real_1d_array(column_size))
-      do k=2, column_size-1
-        field_value%real_1d_array(k)=0.0_DEFAULT_PRECISION-2.0*&
-             current_state%global_grid%configuration%vertical%w_subs(k-1)*&
-             current_state%global_grid%configuration%vertical%tzc1(k)*(&
-             current_state%global_grid%configuration%vertical%olzthbar(k)-&
-             current_state%global_grid%configuration%vertical%olzthbar(k-1)+&
-             current_state%global_grid%configuration%vertical%dthref(k-1))+&
-             current_state%global_grid%configuration%vertical%w_subs(k)*&
-             current_state%global_grid%configuration%vertical%tzc2(k)*(&
-             current_state%global_grid%configuration%vertical%olzthbar(k+1)-&
-             current_state%global_grid%configuration%vertical%olzthbar(k)+&
-             current_state%global_grid%configuration%vertical%dthref(k))
-      end do
-    else if (name .eq. "q_subsidence") then
-      allocate(field_value%real_2d_array(column_size, current_state%number_q_fields))
-      do n=1, current_state%number_q_fields
-        do k=2, column_size-1
-          field_value%real_2d_array(k,n)=0.0_DEFAULT_PRECISION-2.0*&
-               current_state%global_grid%configuration%vertical%w_subs(k-1)*&
-               current_state%global_grid%configuration%vertical%tzc1(k)*(&
-               current_state%global_grid%configuration%vertical%olzqbar(k,n)-&
-               current_state%global_grid%configuration%vertical%olzqbar(k-1,n))+&
-               current_state%global_grid%configuration%vertical%w_subs(k)&
-               *current_state%global_grid%configuration%vertical%tzc2(k)*(&
-               current_state%global_grid%configuration%vertical%olzqbar(k+1,n)-&
-               current_state%global_grid%configuration%vertical%olzqbar(k,n))
-        end do
-      end do
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)= dtheta_subs_profile_diag(:)
+    else if (name .eq. "vapour_mmr_subsidence") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dq_subs_profile_diag(:,iqv)
+    else if (name .eq. "cloud_mmr_subsidence") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dq_subs_profile_diag(:,iql)
+    else if (name .eq. "rain_mmr_subsidence") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dq_subs_profile_diag(:,iqr)
+    else if (name .eq. "ice_mmr_subsidence") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dq_subs_profile_diag(:,iqi)
+    else if (name .eq. "snow_mmr_subsidence") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dq_subs_profile_diag(:,iqs)
+    else if (name .eq. "graupel_mmr_subsidence") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=dq_subs_profile_diag(:,iqg)
+    ! Large-scale forcing diagnostics   
     else if (name .eq. "u_large_scale") then
       allocate(field_value%real_1d_array(column_size))
       field_value%real_1d_array=get_averaged_diagnostics(current_state, du_profile_diag)
@@ -214,11 +229,24 @@ contains
     else if (name .eq. "th_large_scale") then
       allocate(field_value%real_1d_array(column_size))
       field_value%real_1d_array=dtheta_profile_diag
-    else if (name .eq. "q_large_scale") then
-      allocate(field_value%real_2d_array(column_size, current_state%number_q_fields))
-      do n=1, current_state%number_q_fields
-        field_value%real_2d_array(:,n)=get_averaged_diagnostics(current_state, dq_profile_diag(:,n))
-      end do
+    else if (name .eq. "vapour_mmr_large_scale") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=get_averaged_diagnostics(current_state, dq_profile_diag(:,iqv))
+    else if (name .eq. "cloud_mmr_large_scale") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=get_averaged_diagnostics(current_state, dq_profile_diag(:,iql))
+    else if (name .eq. "rain_mmr_large_scale") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=get_averaged_diagnostics(current_state, dq_profile_diag(:,iqr))
+    else if (name .eq. "ice_mmr_large_scale") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=get_averaged_diagnostics(current_state, dq_profile_diag(:,iqi))
+    else if (name .eq. "snow_mmr_large_scale") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=get_averaged_diagnostics(current_state, dq_profile_diag(:,iqs))
+    else if (name .eq. "graupel_mmr_large_scale") then
+       allocate(field_value%real_1d_array(column_size))
+       field_value%real_1d_array(:)=get_averaged_diagnostics(current_state, dq_profile_diag(:,iqg))  
     end if
   end subroutine field_value_retrieval_callback  
 
@@ -260,21 +288,41 @@ contains
 
    integer :: k
 
-    allocate(theta_profile(current_state%local_grid%size(Z_INDEX)), &
-       q_profile(current_state%local_grid%size(Z_INDEX)),           &
-       u_profile(current_state%local_grid%size(Z_INDEX)),           &
-       v_profile(current_state%local_grid%size(Z_INDEX)))
+    allocate(u_profile(current_state%local_grid%size(Z_INDEX)),      &
+       v_profile(current_state%local_grid%size(Z_INDEX)),            &
+       theta_profile(current_state%local_grid%size(Z_INDEX)), &
+       q_profile(current_state%local_grid%size(Z_INDEX)))
 
     allocate(dtheta_profile(current_state%local_grid%size(Z_INDEX)), &
        dq_profile(current_state%local_grid%size(Z_INDEX)),           &
        du_profile(current_state%local_grid%size(Z_INDEX)),           &
        dv_profile(current_state%local_grid%size(Z_INDEX)))
 
-    allocate(du_profile_diag(current_state%local_grid%size(Z_INDEX)), dv_profile_diag(current_state%local_grid%size(Z_INDEX)), &
+    allocate(du_profile_diag(current_state%local_grid%size(Z_INDEX)), &
+         dv_profile_diag(current_state%local_grid%size(Z_INDEX)),     &
          dtheta_profile_diag(current_state%local_grid%size(Z_INDEX)), &
          dq_profile_diag(current_state%local_grid%size(Z_INDEX), current_state%number_q_fields))
+    
+    allocate(du_subs_profile_diag(current_state%local_grid%size(Z_INDEX)), &
+         dv_subs_profile_diag(current_state%local_grid%size(Z_INDEX)),     &
+         dtheta_subs_profile_diag(current_state%local_grid%size(Z_INDEX)), &
+         dq_subs_profile_diag(current_state%local_grid%size(Z_INDEX), current_state%number_q_fields))
 
     allocate(zgrid(current_state%local_grid%size(Z_INDEX)))
+
+    ! assign microphysics indexes, needed for the diagnostic output
+    if (.not. current_state%passive_q .and. current_state%number_q_fields .gt. 0) then 
+       iqv=get_q_index(standard_q_names%VAPOUR, 'forcing')                         
+       iql=get_q_index(standard_q_names%CLOUD_LIQUID_MASS, 'forcing')
+    endif
+    if (current_state%rain_water_mixing_ratio_index > 0) &
+         iqr = current_state%rain_water_mixing_ratio_index
+    if (current_state%ice_water_mixing_ratio_index > 0) &
+         iqi = current_state%ice_water_mixing_ratio_index 
+    if (current_state%snow_water_mixing_ratio_index > 0) &
+         iqs = current_state%snow_water_mixing_ratio_index
+    if (current_state%graupel_water_mixing_ratio_index > 0) &
+         iqg = current_state%graupel_water_mixing_ratio_index
 
     ! Subsidence forcing initialization
 
@@ -283,7 +331,6 @@ contains
     subsidence_input_type=options_get_integer(current_state%options_database, "subsidence_input_type")
     l_subs_local_theta=options_get_logical(current_state%options_database, "subsidence_local_theta")
     l_subs_local_q=options_get_logical(current_state%options_database, "subsidence_local_q")
-
 
     if ((l_subs_pl_theta .and. .not. l_subs_local_theta) .or. &
        (l_subs_pl_q .and. .not. l_subs_local_q))then
@@ -492,6 +539,10 @@ contains
       dv_profile_diag=0.0_DEFAULT_PRECISION
       dtheta_profile_diag=0.0_DEFAULT_PRECISION
       dq_profile_diag=0.0_DEFAULT_PRECISION
+      du_subs_profile_diag=0.0_DEFAULT_PRECISION
+      dv_subs_profile_diag=0.0_DEFAULT_PRECISION
+      dtheta_subs_profile_diag=0.0_DEFAULT_PRECISION
+      dq_subs_profile_diag=0.0_DEFAULT_PRECISION
     end if    
 
     if (current_state%halo_column .or. current_state%timestep<3) return
@@ -535,6 +586,7 @@ contains
            (u_profile(k+1) - u_profile(k)))
       current_state%su%data(k,current_state%column_local_y,current_state%column_local_x) =      &
            current_state%su%data(k,current_state%column_local_y,current_state%column_local_x) - usub
+      du_subs_profile_diag(k) = du_subs_profile_diag(k) - usub
 #endif
 #ifdef V_ACTIVE     
       vsub =  2.0 * (current_state%global_grid%configuration%vertical%w_subs(k-1)*              &
@@ -544,6 +596,7 @@ contains
          (v_profile(k+1) - v_profile(k)))
       current_state%sv%data(k,current_state%column_local_y,current_state%column_local_x) =      &
            current_state%sv%data(k,current_state%column_local_y,current_state%column_local_x) - vsub
+      dv_subs_profile_diag(k) = dv_subs_profile_diag(k) - vsub 
 #endif
     end do
     k=current_state%local_grid%size(Z_INDEX)
@@ -552,12 +605,14 @@ contains
          current_state%global_grid%configuration%vertical%tzc1(k)*(u_profile(k)-u_profile(k-1)))
     current_state%su%data(k,current_state%column_local_y,current_state%column_local_x) =        &
          current_state%su%data(k,current_state%column_local_y,current_state%column_local_x) - usub
+    du_subs_profile_diag(k) = du_subs_profile_diag(k) - usub
 #endif
 #ifdef V_ACTIVE
     vsub =  2.0 * (current_state%global_grid%configuration%vertical%w_subs(k-1)*                &
          current_state%global_grid%configuration%vertical%tzc1(k)*(v_profile(k)-v_profile(k-1)))
     current_state%sv%data(k,current_state%column_local_y,current_state%column_local_x) =        &
          current_state%sv%data(k,current_state%column_local_y,current_state%column_local_x) - vsub
+    dv_subs_profile_diag(k) = dv_subs_profile_diag(k) - vsub
 #endif
   end subroutine apply_subsidence_to_flow_fields
 
@@ -582,6 +637,7 @@ contains
       
       current_state%sth%data(k,current_state%column_local_y,current_state%column_local_x) = &
            current_state%sth%data(k,current_state%column_local_y,current_state%column_local_x) - thsub
+      dtheta_subs_profile_diag(k) = dtheta_subs_profile_diag(k) - thsub
     end do
     k=current_state%local_grid%size(Z_INDEX)
     thsub = current_state%global_grid%configuration%vertical%w_subs(k)* &
@@ -590,6 +646,7 @@ contains
 
     current_state%sth%data(k,current_state%column_local_y,current_state%column_local_x) = &
          current_state%sth%data(k,current_state%column_local_y,current_state%column_local_x) - thsub
+    dtheta_subs_profile_diag(k) = dtheta_subs_profile_diag(k) - thsub
   end subroutine apply_subsidence_to_theta
 
   subroutine apply_subsidence_to_q_fields(current_state)
@@ -611,6 +668,7 @@ contains
            current_state%global_grid%configuration%vertical%rdzn(k+1)
         current_state%sq(n)%data(k,current_state%column_local_y,current_state%column_local_x) = &
            current_state%sq(n)%data(k,current_state%column_local_y,current_state%column_local_x) - qsub
+        dq_subs_profile_diag(k,n) = dq_subs_profile_diag(k,n) - qsub
       end do
       k=current_state%local_grid%size(Z_INDEX)
       qsub = current_state%global_grid%configuration%vertical%w_subs(k)*    &
@@ -618,6 +676,7 @@ contains
          current_state%global_grid%configuration%vertical%rdzn(k)
       current_state%sq(n)%data(k,current_state%column_local_y,current_state%column_local_x) = &
          current_state%sq(n)%data(k,current_state%column_local_y,current_state%column_local_x) - qsub
+      dq_subs_profile_diag(k,n) = dq_subs_profile_diag(k,n) - qsub
     end do
   end subroutine apply_subsidence_to_q_fields
 

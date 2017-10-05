@@ -70,6 +70,8 @@ module state_mod
          momentum_stepping, number_q_fields=0, start_timestep=1, type_of_surface_boundary_conditions, lookup_table_entries, &
          cfl_frequency, termination_reason
     integer :: water_vapour_mixing_ratio_index=0, liquid_water_mixing_ratio_index=0, &
+         rain_water_mixing_ratio_index=0, ice_water_mixing_ratio_index=0, &
+         snow_water_mixing_ratio_index=0, graupel_water_mixing_ratio_index=0, & 
          psrce_x_hs_send_request, psrce_y_hs_send_request, psrce_x_hs_recv_request, psrce_y_hs_recv_request
     logical :: first_timestep_column, last_timestep_column, halo_column, first_nonhalo_timestep_column, &
          passive_q=.false., passive_th=.false., &

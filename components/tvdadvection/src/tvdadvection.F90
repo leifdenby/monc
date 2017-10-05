@@ -11,6 +11,10 @@ module tvdadvection_mod
   use optionsdatabase_mod, only : options_get_string
   use collections_mod, only : map_type
   use mpi, only : MPI_REQUEST_NULL, MPI_STATUS_IGNORE
+  ! Some tvd diagnostic terms 
+  use def_tvd_diagnostic_terms, only: tvd_dgs_terms 
+  use registry_mod, only : is_component_enabled
+
   implicit none
 
 #ifndef TEST_MODE
@@ -23,6 +27,7 @@ module tvdadvection_mod
   real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: flux_x, flux_y, flux_z, u_advection, v_advection, &
        w_advection, th_advection
   real(kind=DEFAULT_PRECISION), dimension(:,:), allocatable :: q_advection
+  
   type(prognostic_field_type), dimension(:), allocatable :: interpolated_fields
 
   public tvdadvection_get_descriptor
@@ -149,9 +154,11 @@ contains
     allocate(u_advection(current_state%global_grid%size(Z_INDEX)), v_advection(current_state%global_grid%size(Z_INDEX)), &
          w_advection(current_state%global_grid%size(Z_INDEX)), th_advection(current_state%global_grid%size(Z_INDEX)), &
          q_advection(current_state%global_grid%size(Z_INDEX), current_state%number_q_fields))
+
     advect_flow=determine_if_advection_here(options_get_string(current_state%options_database, "advection_flow_fields"))    
     advect_th=determine_if_advection_here(options_get_string(current_state%options_database, "advection_theta_field"))
-    advect_q=determine_if_advection_here(options_get_string(current_state%options_database, "advection_q_fields"))   
+    advect_q=determine_if_advection_here(options_get_string(current_state%options_database, "advection_q_fields"))
+
   end subroutine initialisation_callback
 
   !> Frees up the memory associated with the advection
@@ -169,6 +176,7 @@ contains
     if (allocated(w_advection)) deallocate(w_advection)
     if (allocated(th_advection)) deallocate(th_advection)
     if (allocated(q_advection)) deallocate(q_advection)
+
   end subroutine finalisation_callback  
 
   !> Timestep callback hook which performs the TVD advection for each prognostic field
@@ -204,18 +212,36 @@ contains
     call advect_u(current_state%column_local_y, current_state%column_local_x, dtm, current_state%u, &
          current_state%v, current_state%w, current_state%zu, current_state%su, current_state%global_grid, &
          current_state%local_grid, current_state%parallel, current_state%halo_column, current_state%field_stepping)
+    if (is_component_enabled(current_state%options_database, "profile_diagnostics")) then
+       ! NOTE: flux_z is declared at the top of module and then passed into ultflx, through argument 
+       !       list in advect_scalar_field.
+       tvd_dgs_terms%adv_u_dgs(:, current_state%column_local_y, current_state%column_local_x) =  &
+            flux_z(:)
+    endif
 #endif
 
 #ifdef V_ACTIVE
     call advect_v(current_state%column_local_y, current_state%column_local_x, dtm, current_state%u, &
          current_state%v, current_state%w, current_state%zv, current_state%sv, current_state%global_grid, &
          current_state%local_grid, current_state%parallel, current_state%halo_column, current_state%field_stepping)
+    if (is_component_enabled(current_state%options_database, "profile_diagnostics")) then
+       ! NOTE: flux_z is declared at the top of module and then passed into ultflx, through argument 
+       !       list in advect_scalar_field.
+       tvd_dgs_terms%adv_v_dgs(:, current_state%column_local_y, current_state%column_local_x) =  &
+            flux_z(:)
+    endif
 #endif
 
 #ifdef W_ACTIVE
     call advect_w(current_state%column_local_y, current_state%column_local_x, dtm, current_state%u, &
          current_state%v, current_state%w, current_state%zw, current_state%sw, current_state%global_grid,&
          current_state%local_grid, current_state%parallel, current_state%halo_column, current_state%field_stepping)
+    if (is_component_enabled(current_state%options_database, "profile_diagnostics")) then
+       ! NOTE: flux_z is declared at the top of module and then passed into ultflx, through argument 
+       !       list in advect_scalar_field.
+       tvd_dgs_terms%adv_w_dgs(:, current_state%column_local_y, current_state%column_local_x) =  &
+            flux_z(:)
+    endif
 #endif
   end subroutine advect_flow_fields
 
@@ -237,6 +263,13 @@ contains
              current_state%global_grid, current_state%local_grid, current_state%parallel, &
              current_state%halo_column, current_state%field_stepping)
         q_advection(:,i)=current_state%sq(i)%data(:, current_state%column_local_y, current_state%column_local_x)
+        if (is_component_enabled(current_state%options_database, "profile_diagnostics")) then
+           ! NOTE: flux_z is declared at the top of module and then passed into ultflx, through argument 
+           !       list in advect_scalar_field.
+           tvd_dgs_terms%adv_q_dgs(:, current_state%column_local_y, current_state%column_local_x, i) =  &
+                flux_z(:)
+        endif
+           
       end if
     end do
   end subroutine advect_q_fields
@@ -256,6 +289,15 @@ contains
            current_state%v, current_state%w, current_state%zth, current_state%th, current_state%sth, current_state%global_grid,&
            current_state%local_grid, current_state%parallel, current_state%halo_column, current_state%field_stepping)
       th_advection=current_state%sth%data(:, current_state%column_local_y, current_state%column_local_x)
+      if (is_component_enabled(current_state%options_database, "profile_diagnostics")) then
+           ! NOTE: flux_z is declared at the top of module and then passed into ultflx, through argument 
+           !       list in advect_scalar_field.
+         print *, size(flux_z,1)
+         print*, size(tvd_dgs_terms%adv_th_dgs,1), size(tvd_dgs_terms%adv_th_dgs,2), &
+              size(tvd_dgs_terms%adv_th_dgs,3) 
+         tvd_dgs_terms%adv_th_dgs(:, current_state%column_local_y, current_state%column_local_x) =  &
+              flux_z(:)
+        endif
     end if
   end subroutine advect_theta
 
