@@ -292,9 +292,6 @@ contains
       if (is_component_enabled(current_state%options_database, "profile_diagnostics")) then
            ! NOTE: flux_z is declared at the top of module and then passed into ultflx, through argument 
            !       list in advect_scalar_field.
-         print *, size(flux_z,1)
-         print*, size(tvd_dgs_terms%adv_th_dgs,1), size(tvd_dgs_terms%adv_th_dgs,2), &
-              size(tvd_dgs_terms%adv_th_dgs,3) 
          tvd_dgs_terms%adv_th_dgs(:, current_state%column_local_y, current_state%column_local_x) =  &
               flux_z(:)
         endif

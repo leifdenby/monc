@@ -139,6 +139,8 @@ contains
        wmax(:,:)=0.0
        ! minimum vertical velocity for each column
        wmin(:,:)=0.0
+       ! resolved ke
+       reske(:,:) = 0.0
        
        if (.not. current_state%passive_q .and. current_state%number_q_fields .gt. 0) then
           ! maximum liquid water content in a column
@@ -209,7 +211,7 @@ contains
             current_state%global_grid%configuration%vertical%z(current_state%local_grid%size(Z_INDEX))
        ! subke is derive in the subgrid_profile_diagnostics component
        
-       if (current_state%number_q_fields .gt. 0) then
+       if (.not. current_state%passive_q .and. current_state%number_q_fields .gt. 0) then
           !
           ! calculate the lwc maximum and height of lwc max for each column
           !
@@ -329,10 +331,8 @@ contains
       field_information%enabled=current_state%use_surface_boundary_conditions .and. &
            current_state%water_vapour_mixing_ratio_index .gt. 0 .and. &
            current_state%number_q_fields .ge. current_state%water_vapour_mixing_ratio_index
-    else if (name .eq. "cltop" .or. name .eq. "clbas") then
-      field_information%enabled=current_state%number_q_fields .gt. 0
-    else if (name .eq. "qlmax") then
-      field_information%enabled=current_state%number_q_fields .gt. 0 .and. current_state%liquid_water_mixing_ratio_index .gt. 0 &
+   else if (name .eq. "qlmax".or. name .eq. "cltop" .or. name .eq. "clbas") then
+      field_information%enabled=.not. current_state%passive_q .and. current_state%liquid_water_mixing_ratio_index .gt. 0 &
            .and. current_state%number_q_fields .ge. current_state%liquid_water_mixing_ratio_index
     else if (name .eq. "vwp" .or. name .eq. "lwp") then
       field_information%enabled=current_state%number_q_fields .gt. 0 .and. current_state%water_vapour_mixing_ratio_index .gt. 0 &

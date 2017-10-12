@@ -472,10 +472,7 @@ contains
                 wtheta_cn_tot(k) = wtheta_cn_tot(k) + &
                      current_state%w%data(k,jcol,icol) * &
                      thprime_w_local
-                print *, k+1, icol, jcol
-                print*, size(tvd_dgs_terms%adv_th_dgs,1), size(tvd_dgs_terms%adv_th_dgs,2), &
-                     size(tvd_dgs_terms%adv_th_dgs,3) 
-                 wtheta_ad_tot(k) = wtheta_ad_tot(k) +           &
+                wtheta_ad_tot(k) = wtheta_ad_tot(k) +           &
                      current_state%w%data(k,jcol,icol) *         &
                      tvd_dgs_terms%adv_th_dgs(k+1,jcol,icol)
              enddo
