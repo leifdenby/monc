@@ -79,8 +79,8 @@ last_group_contents=checkpointer, model_synopsis, termination_check, iobridge
 
 # Component ordering for other stages
 
-initialisation_stage_ordering=decomposition, kidreader, kidtestcase, checkpointer, simplesetup, grid_manager, mean_profiles, swap_smooth, termination_check, coriolis, buoyancy, cfltest, damping, diverr, fftsolver, halo_swapper, iterativesolver, setfluxlook, simplecloud, casim, lower_bc, physicsa, psrce, pw_advection, diffusion, set_consistent_lowbc, viscosity, smagorinsky, stepfields, stepping_direction, tvd_advection, model_synopsis, lwrad_exponential,th_advection, randomnoise, forcing, flux_budget, diagnostics, profile_diagnostics, casim_profile_dgs, subgrid_profile_diagnostics, scalar_diagnostics, lateral_bcs, petsc_solver, pstep, iobridge
-finalisation_stage_ordering=iobridge, checkpointer, diverr, fftsolver, grid_manager, halo_swapper, iterativesolver, physicsa, psrce, smagorinsky, tvd_advection,lwrad_exponential, model_synopsis, mean_profiles, forcing, stepfields, flux_budget, buoyancy, diffusion, lower_bc, viscosity, profile_diagnostics
+initialisation_stage_ordering=decomposition, kidreader, kidtestcase, checkpointer, simplesetup, grid_manager, mean_profiles, swap_smooth, termination_check, simplecloud, casim, coriolis, buoyancy, cfltest, damping, diverr, fftsolver, halo_swapper, iterativesolver, setfluxlook, lower_bc, physicsa, psrce, pw_advection, diffusion, set_consistent_lowbc, viscosity, smagorinsky, stepfields, stepping_direction, tvd_advection, model_synopsis, lwrad_exponential,th_advection, randomnoise, forcing, flux_budget, diagnostics, profile_diagnostics, casim_profile_dgs, subgrid_profile_diagnostics, scalar_diagnostics, lateral_bcs, petsc_solver, pstep, iobridge
+finalisation_stage_ordering=iobridge, checkpointer, diverr, fftsolver, grid_manager, halo_swapper, iterativesolver, physicsa, psrce, smagorinsky, tvd_advection,lwrad_exponential, model_synopsis, mean_profiles, forcing, stepfields, flux_budget, buoyancy, diffusion, lower_bc, viscosity, profile_diagnostics, pw_advection, th_advection, damping, simplecloud
 
 # Control configuration
 nn_timesteps=-1
