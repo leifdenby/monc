@@ -118,7 +118,7 @@ contains
     type(model_state_type), intent(inout) :: current_state
     type(global_grid_type), intent(inout) :: specific_grid
 
-    integer, parameter :: KGD_SIZE=20
+    integer, parameter :: KGD_SIZE=200
     integer :: number_kgd, i, kgd(KGD_SIZE)
     real(kind=DEFAULT_PRECISION) :: hgd(KGD_SIZE)
 
