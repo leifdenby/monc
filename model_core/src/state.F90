@@ -45,9 +45,14 @@ module state_mod
     type(global_grid_type) :: global_grid
     type(local_grid_type) :: local_grid
     type(parallel_state_type) :: parallel
-    type(prognostic_field_type) :: u, w, v, th, p, zu, zw, zv, zth, su, sw, sv, sth, savu, savv, savw, vis_coefficient, &
-         diff_coefficient, dis, dis_th
+    type(prognostic_field_type) :: u, w, v, th, p, zu, zw, zv, zth, su, sw, sv, sth, savu, savv, & 
+         savw, vis_coefficient, &
+         diff_coefficient, dis, dis_th, &
+         ! Heating rates from socrates
+         sth_lw, sth_sw
     type(prognostic_field_type), dimension(:), allocatable :: q, zq, sq, disq
+    ! longwave and shortwave downwelling flux at the surface
+    real(kind=DEFAULT_PRECISION), dimension(:,:), allocatable :: sw_down_surf, lw_down_surf
     type(halo_communication_type) :: viscosity_halo_swap_state, diffusion_halo_swap_state
     real(kind=DEFAULT_PRECISION) :: time=.0_DEFAULT_PRECISION,& ! Model time in seconds
             dtm,& ! Modeltimestep (s)
@@ -83,5 +88,8 @@ module state_mod
 
     logical :: galilean_transformation=.true., fix_ugal=.false., fix_vgal=.false.
     real(kind=DEFAULT_PRECISION) :: ugal=0.,vgal=0.
+    ! SOCRATES time variables are included in state since they need to be dumped
+    real(kind=DEFAULT_PRECISION) :: rad_last_time=0.0
+
   end type model_state_type
 end module state_mod

@@ -2,7 +2,7 @@ module setfluxlook_mod
   use monc_component_mod, only : component_descriptor_type
   use state_mod, only : PRESCRIBED_SURFACE_FLUXES, PRESCRIBED_SURFACE_VALUES, model_state_type
   use grids_mod, only : Z_INDEX
-  use datadefn_mod, only : DEFAULT_PRECISION
+  use datadefn_mod, only : DEFAULT_PRECISION, STRING_LENGTH
   use optionsdatabase_mod, only : options_get_real, options_get_integer, options_get_array_size, &
      options_get_real_array, options_get_string, options_get_logical
   use saturation_mod, only : qsaturation
@@ -102,6 +102,9 @@ contains
        ! surface vapour (surface_vapour_mixing_ratio) set to saturated value (see read_config)
           if (current_state%saturated_surface)then
              current_state%surface_vapour_mixing_ratio = qsaturation(surface_temperatures(1),current_state%surface_pressure*0.01)
+          else 
+             current_state%surface_vapour_mixing_ratio =  &
+                  options_get_real(current_state%options_database, "surface_vapour_mixing_ratio")
           endif
           
        ! The code below copied from set_flux as these values need to be 
@@ -240,7 +243,7 @@ contains
     type(model_state_type), intent(inout), target :: current_state
 
     real(kind=DEFAULT_PRECISION) :: surface_temp   ! Surface temperature
-
+  
     if (current_state%type_of_surface_boundary_conditions == PRESCRIBED_SURFACE_FLUXES) then  ! Prescribed surface fluxes
       
       ! Linear interpolation of input data...
@@ -269,8 +272,9 @@ contains
          surface_temperatures, &
          current_state%time, surface_temp, &
          extrapolate='constant') 
-
-
+      
+      surface_temp = surface_temp + 273.15_DEFAULT_PRECISION
+      
       if (current_state%saturated_surface)then
         current_state%surface_vapour_mixing_ratio = qsaturation(surface_temp,current_state%surface_pressure*0.01)
       else
