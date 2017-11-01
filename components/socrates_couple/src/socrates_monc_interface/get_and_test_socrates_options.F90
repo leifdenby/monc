@@ -24,6 +24,13 @@ contains
     
     ! First check the MONC switches are sensible to run socrates
     !
+    ! check that lwrad_exp is not on, as this will double the cloud top
+    ! longwave cooling
+    if (is_component_enabled(current_state%options_database, "lwrad_exponential")) then
+       call log_master_log &
+            (LOG_ERROR, "Socrates and lwrad_exponential both enabled, switch off on in config - STOP")
+    endif
+    
     ! check whether potential temperature is active, if not stop run
     if (.not. current_state%th%active) then
        call log_master_log &

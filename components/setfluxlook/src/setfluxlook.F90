@@ -273,7 +273,7 @@ contains
          current_state%time, surface_temp, &
          extrapolate='constant') 
       
-      surface_temp = surface_temp + 273.15_DEFAULT_PRECISION
+      !surface_temp = surface_temp + 273.15_DEFAULT_PRECISION
       
       if (current_state%saturated_surface)then
         current_state%surface_vapour_mixing_ratio = qsaturation(surface_temp,current_state%surface_pressure*0.01)

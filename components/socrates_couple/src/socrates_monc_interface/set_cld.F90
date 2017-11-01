@@ -106,6 +106,9 @@ REAL, PARAMETER :: n_ice_baran = 353.613e-6
 REAL, PARAMETER :: min_ice_baran = 7.0e-6
 REAL, PARAMETER :: max_ice_baran = 156.631e-6
 
+! Variables for liquid re calculation
+REAL :: beta
+
 !     Functions called:
 INTEGER, EXTERNAL :: set_n_cloud_parameter
 !       Function to find number of parameters for clouds
@@ -285,137 +288,63 @@ DO j=1, n_layer
    
 END DO
 
-!!$!     SET THE CHARACTERISTIC DIMENSIONS OF ICE CRYSTALS:
-!!$
-!!$!     ICE CRYSTALS IN STRATIFORM CLOUDS:
-!!$
-!!$SELECT CASE (i_condensed_param(ip_clcmp_st_ice))
-!!$
-!!$CASE (ip_slingo_schrecker_ice)
-!!$
-!!$  !        THIS PARAMETRIZATION IS BASED ON THE EFFECTIVE RADIUS
-!!$  !        AND A STANDARD VALUE OF 30-MICRONS IS ASSUMED.
-!!$
-!!$  DO i=n_layer+1-nclds, n_layer
-!!$    DO l=1, n_profile
-!!$      condensed_dim_char(l, i, ip_clcmp_st_ice)=30.0e-6
-!!$    END DO
-!!$  END DO
-!!$
-!!$CASE (ip_ice_adt)
-!!$
-!!$  !        THIS PARAMETRIZATION IS BASED ON THE MEAN MAXIMUM
-!!$  !        DIMENSION OF THE CRYSTAL, DETERMINED AS A FUNCTION OF
-!!$  !        THE LOCAL TEMPERATURE. THE SIZE IS LIMITED TO ITS VALUE
-!!$  !        AT THE FREEZING LEVEL.
-!!$
-!!$  DO i=n_layer+1-nclds, n_layer
-!!$    DO l=1, n_profile
-!!$      condensed_dim_char(l, i, ip_clcmp_st_ice)                &
-!!$         =MIN(7.198755e-04                                     &
-!!$         , EXP(5.522e-02*(t(l, i)-2.7965e+02))/9.702e+02)
-!!$    END DO
-!!$  END DO
-!!$
-!!$CASE (ip_ice_agg_de, ip_ice_agg_de_sun)
-!!$
-!!$  !      Aggregate parametrization based on effective dimension.
-!!$  !      In the initial form, the same approach is used for stratiform
-!!$  !      and convective cloud.
-!!$
-!!$  !      The fit provided here is based on Stephan Havemann's fit of
-!!$  !      Dge with temperature, consistent with David Mitchell's treatment
-!!$  !      of the variation of the size distribution with temperature. The
-!!$  !      parametrization of the optical properties is based on De
-!!$  !      (=(3/2)volume/projected area), whereas Stephan's fit gives Dge
-!!$  !      (=(2*SQRT(3)/3)*volume/projected area), which explains the
-!!$  !      conversion factor. The fit to Dge is in two sections, because
-!!$  !      Mitchell's relationship predicts a cusp at 216.208 K. Limits
-!!$  !      of 8 and 124 microns are imposed on Dge: these are based on this
-!!$  !      relationship and should be reviewed if it is changed. Note also
-!!$  !      that the relationship given here is for polycrystals only.
-!!$  DO i=n_layer+1-nclds, n_layer
-!!$    DO l=1, n_profile
-!!$      !          Preliminary calculation of Dge.
-!!$      IF (t(l, i) < t_switch) THEN
-!!$        condensed_dim_char(l, i, ip_clcmp_st_ice)                  &
-!!$          = a0_agg_cold*EXP(s0_agg*(t(l, i)-t0_agg))+b0_agg_cold
-!!$      ELSE
-!!$        condensed_dim_char(l, i, ip_clcmp_st_ice)                  &
-!!$          = a0_agg_warm*EXP(s0_agg*(t(l, i)-t0_agg))+b0_agg_warm
-!!$      END IF
-!!$      !          Limit and convert to De.
-!!$      condensed_dim_char(l, i, ip_clcmp_st_ice)                    &
-!!$        = (3.0/2.0)*(3.0/(2.0*SQRT(3.0)))*                         &
-!!$          MIN(1.24e-04, MAX(8.0e-06,                               &
-!!$          condensed_dim_char(l, i, ip_clcmp_st_ice)))
-!!$    END DO
-!!$  END DO
-!!$
-!!$
-!!$CASE (ip_ice_sun_fu, ip_ice_chou_vis)
-!!$
-!!$  !       Effective size of ice crystals from Sun & Rikus scheme (Sun,
-!!$  !       2001: Reply to comments by Greg M. McFarquhar on 'Parametrization
-!!$  !       of effective radius of cirrus clouds and its verification against
-!!$  !       observations'. Q. J. Royal. Meteor. Soc., 127, pp 267)
-!!$
-!!$  DO i=n_layer+1-nclds, n_layer
-!!$    DO l=1, n_profile
-!!$
-!!$      !           IWC is in g m-3
-!!$      iwc=condensed_mix_rat_area(l, i, ip_clcmp_st_ice)           &
-!!$        *density_air(l,i)*1.0e+03 + 1.0e-50
-!!$
-!!$      !           1.e-6 for converting to metre for consistency
-!!$      condensed_dim_char(l, i, ip_clcmp_st_ice)                   &
-!!$        =1.0e-6*(EXP(LOG(a1_s)+a2_s*LOG(iwc))                      &
-!!$        +EXP(LOG(a3_s)+a4_s*LOG(iwc))*(t(l,i)-a5_s) )
-!!$
-!!$      condensed_dim_char(l, i, ip_clcmp_st_ice)                   &
-!!$        = MERGE( condensed_dim_char(l, i, ip_clcmp_st_ice)        &
-!!$        * (a6_s+a7_s*(t(l,i)-273.15))                             &
-!!$        , condensed_dim_char(l, i, ip_clcmp_st_ice)               &
-!!$        , (ABS (alat(l)) >= a8_s )  )
-!!$
-!!$    END DO
-!!$  END DO
-!!$
-!!$CASE (ip_ice_baran)
-!!$
-!!$  !        Diagnostic De=De(T) parameterisation developed by A. Baran.
-!!$  !        Fit to data based on Field et al., JAS, 2007, 10.1175/2007JAS2344.1.
-!!$  !        The weighting of the ensemble model follows that assumed in
-!!$  !        experiment 4 of Baran et al. (2014 and 2016). The weights applied
-!!$  !        at each size bin are 0.50,0.20,0.30, 0.0, 0.0, 0.0 (that is
-!!$  !        hexagons+rosettes account for 70% of the mass at each size bin).
-!!$  !        De is defined as 1.50*(mass of PSD/area of PSD).
-!!$  !        The size is limited to its value at the freezing level.
-!!$
-!!$  condensed_min_dim(ip_clcmp_st_ice) = min_ice_baran
-!!$  condensed_max_dim(ip_clcmp_st_ice) = max_ice_baran
-!!$  DO i=n_layer+1-nclds, n_layer
-!!$    DO l=1, n_profile
-!!$      condensed_dim_char(l,i,ip_clcmp_st_ice)=m_ice_baran*t(l, i)-n_ice_baran
-!!$    END DO
-!!$  END DO
-!!$
-!!$END SELECT ! I_CONDENSED_PARAM(IP_CLCMP_ST_ICE)
+!     SET THE CHARACTERISTIC DIMENSIONS OF ICE CRYSTALS:
 
-!!$!     CONSTRAIN THE SIZES OF ICE CRYSTALS TO LIE WITHIN THE RANGE
-!!$!     OF VALIDITY OF THE PARAMETRIZATION SCHEME.
-!!$DO i=n_layer+1-nclds, n_layer
-!!$  DO l=1, n_profile
-!!$    condensed_dim_char(l, i, ip_clcmp_st_ice)                   &
-!!$       =MAX(condensed_min_dim(ip_clcmp_st_ice)                  &
-!!$       , MIN(condensed_max_dim(ip_clcmp_st_ice)                 &
-!!$       , condensed_dim_char(l, i, ip_clcmp_st_ice)))
-!!$    condensed_dim_char(l, i, ip_clcmp_cnv_ice)                  &
-!!$       =MAX(condensed_min_dim(ip_clcmp_cnv_ice)                 &
-!!$       , MIN(condensed_max_dim(ip_clcmp_cnv_ice)                &
-!!$       , condensed_dim_char(l, i, ip_clcmp_cnv_ice)))
-!!$  END DO
-!!$END DO
+!     ICE CRYSTALS IN STRATIFORM CLOUDS:
+
+SELECT CASE (cld%i_condensed_param(ip_clcmp_st_ice))
+
+CASE (ip_ice_agg_de, ip_ice_agg_de_sun)
+
+  !      Aggregate parametrization based on effective dimension.
+  !      In the initial form, the same approach is used for stratiform
+  !      and convective cloud.
+
+  !      The fit provided here is based on Stephan Havemann's fit of
+  !      Dge with temperature, consistent with David Mitchell's treatment
+  !      of the variation of the size distribution with temperature. The
+  !      parametrization of the optical properties is based on De
+  !      (=(3/2)volume/projected area), whereas Stephan's fit gives Dge
+  !      (=(2*SQRT(3)/3)*volume/projected area), which explains the
+  !      conversion factor. The fit to Dge is in two sections, because
+  !      Mitchell's relationship predicts a cusp at 216.208 K. Limits
+  !      of 8 and 124 microns are imposed on Dge: these are based on this
+  !      relationship and should be reviewed if it is changed. Note also
+  !      that the relationship given here is for polycrystals only.
+  DO i=1, n_layer
+    DO l=1, n_profile
+      !          Preliminary calculation of Dge.
+      IF (atm%t(l, i) < t_switch) THEN
+        cld%condensed_dim_char(l, i, ip_clcmp_st_ice)                  &
+          = a0_agg_cold*EXP(s0_agg*(atm%t(l, i)-t0_agg))+b0_agg_cold
+      ELSE
+        cld%condensed_dim_char(l, i, ip_clcmp_st_ice)                  &
+          = a0_agg_warm*EXP(s0_agg*(atm%t(l, i)-t0_agg))+b0_agg_warm
+      END IF
+      !          Limit and convert to De.
+      cld%condensed_dim_char(l, i, ip_clcmp_st_ice)                    &
+        = (3.0/2.0)*(3.0/(2.0*SQRT(3.0)))*                         &
+          MIN(1.24e-04, MAX(8.0e-06,                               &
+          cld%condensed_dim_char(l, i, ip_clcmp_st_ice)))
+    END DO
+  END DO
+
+END SELECT ! I_CONDENSED_PARAM(IP_CLCMP_ST_ICE)
+!
+!     CONSTRAIN THE SIZES OF ICE CRYSTALS TO LIE WITHIN THE RANGE
+!     OF VALIDITY OF THE PARAMETRIZATION SCHEME.
+DO i=1, n_layer
+  DO l=1, n_profile
+    cld%condensed_dim_char(l, i, ip_clcmp_st_ice)                   &
+       =MAX(condensed_min_dim(ip_clcmp_st_ice)                  &
+       , MIN(condensed_max_dim(ip_clcmp_st_ice)                 &
+       , cld%condensed_dim_char(l, i, ip_clcmp_st_ice)))
+    cld%condensed_dim_char(l, i, ip_clcmp_cnv_ice)                  &
+       =MAX(condensed_min_dim(ip_clcmp_cnv_ice)                 &
+       , MIN(condensed_max_dim(ip_clcmp_cnv_ice)                &
+       , cld%condensed_dim_char(l, i, ip_clcmp_cnv_ice)))
+  END DO
+END DO
 
 
 END SUBROUTINE set_cld

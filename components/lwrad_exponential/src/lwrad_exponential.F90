@@ -12,6 +12,8 @@ module lwrad_exponential_mod
   use grids_mod, only : Z_INDEX, Y_INDEX, X_INDEX
   use science_constants_mod, only : cp
   use q_indices_mod, only: get_q_index, standard_q_names
+  use registry_mod, only : is_component_enabled
+  use logging_mod, only : LOG_ERROR, log_master_log
 
   implicit none
 
@@ -56,10 +58,17 @@ contains
     type(model_state_type), target, intent(inout) :: current_state
 
     integer :: kkp, k ! look counter
+
+    
     k_top = current_state%local_grid%size(Z_INDEX) + current_state%local_grid%halo_size(Z_INDEX) * 2
     x_local = current_state%local_grid%size(X_INDEX) + current_state%local_grid%halo_size(X_INDEX) * 2
     y_local = current_state%local_grid%size(Y_INDEX) + current_state%local_grid%halo_size(X_INDEX) * 2
 
+    if (is_component_enabled(current_state%options_database, "socrates_couple")) then
+       call log_master_log &
+            (LOG_ERROR, "Socrates and lwrad_exponential both enabled, switch off one in config - STOP")
+    endif
+    
     allocate(lwrad_flux_top(k_top))
     allocate(lwrad_flux_base(k_top))
     allocate(lwrad_flux(k_top))

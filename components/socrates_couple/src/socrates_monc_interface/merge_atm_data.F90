@@ -69,51 +69,6 @@ contains
     merge_fields%ice_cloud_fraction(:) = 0.0
    
     cloud_total = 0.0
-    
-    ! Work out the pressure on levels. Levels are worked out with MONC using the altitude
-    ! values for weights (this differs from McClatchey, where pressure is used)
-!!$    merge_fields%pref_loc(1) = current_state%surface_pressure
-!!$    do k=2, k_top-1
-!!$       weight_upper = vertical_grid%zn(k+1) - vertical_grid%z(k)
-!!$       weight_lower = vertical_grid%zn(k+1) - vertical_grid%zn(k)
-!!$       merge_fields%pref_loc(k) = ( (weight_upper*vertical_grid%prefn(k+1)) + &
-!!$            (weight_lower*vertical_grid%prefn(k))) / &
-!!$              (weight_upper+weight_lower)  
-!!$    enddo
-!!$    merge_fields%pref_loc(k_top) = vertical_grid%prefn(k_top) + &
-!!$         (vertical_grid%prefn(k_top)-merge_fields%pref_loc(k_top-1))
-!!$    
-!!$    do k=1, k_top
-!!$       merge_fields%t_n_loc(k) = (current_state%th%data(k, jcol, icol)                       &
-!!$            + current_state%global_grid%configuration%vertical%thref(k))        &
-!!$            * current_state%global_grid%configuration%vertical%rprefrcp(k)
-!!$    enddo
-!!$
-!!$    ! interpolate 
-!!$    merge_fields%t_level_loc(1) = socrates_derived_fields%srf_temperature
-!!$    do k=2, k_top-1       
-!!$       weight_upper = vertical_grid%zn(k+1) - vertical_grid%z(k)
-!!$       weight_lower = vertical_grid%zn(k+1) - vertical_grid%zn(k)
-!!$       merge_fields%t_level_loc(k) = ( (weight_upper*merge_fields%t_n_loc(k+1)) +  &
-!!$            (weight_lower*merge_fields%t_n_loc(k))) / &
-!!$            (weight_upper+weight_lower)      
-!!$    enddo
-!!$    merge_fields%t_level_loc(k_top) = merge_fields%t_n_loc(k_top) + &
-!!$         (merge_fields%t_n_loc(k_top)-merge_fields%t_level_loc(k_top-1))
-!!$    
-!!$    ! Now merge the _loc fields with the McClatchey field and flip grid so that domain 
-!!$    ! top is index 1
-!!$    
-!!$    do k = 1, k_top
-!!$       ! level pressure
-!!$       merge_fields%pres_level(k+mcc%cut) = merge_fields%pref_loc(k_top+1-k)
-!!$       ! Absolute temperature at the grid boundary
-!!$       merge_fields%t_level(k+mcc%cut) = merge_fields%t_level_loc(k_top+1-k)
-!!$    enddo
-!!$    
-!!$    !   Hack the top:
-!!$    merge_fields%pres_level(mcc%cut) = 2.0*merge_fields%pref_loc(k_top) - &
-!!$                                           merge_fields%pref_loc(k_top-1)
 !
 ! derive absolute temperature
     do k=1, k_top
@@ -190,7 +145,7 @@ contains
        endif
     enddo
 
-    ! Work our k_top value for the centre fields. This is the mean of the monc centre value and 
+    ! Work out k_top value for the centre fields. This is the mean of the monc centre value and 
     ! McClatchey centre fields
     ! Pressure at the merge cut-off
     merge_fields%pres_n(mcc%cut+1)= &
@@ -228,6 +183,9 @@ contains
     merge_fields%pres_level(0) = 0.0
     merge_fields%t_level(0) = merge_fields%t_level(1)
 
+    ! Assume the level is mid-way between n levels. While this is the same as 
+    ! the LEM assumption, this is not correct. There should be a weighting factor
+    ! that accounts for a stretched MONC grid
     do k = 1, mcc%irad_levs-1
        merge_fields%pres_level(k) = 0.5_DEFAULT_PRECISION * &
             (merge_fields%pres_n(k) + merge_fields%pres_n(k+1))
@@ -241,14 +199,6 @@ contains
        merge_fields%mass(k) = &
             (merge_fields%pres_level(k)-merge_fields%pres_level(k-1))/gravity
     enddo
-     
-!!$    print *, 'mass, p_level, p_n, t_level, t_n, ql_n, k'
-!!$    do k=1, mcc%irad_levs
-!!$       print *,merge_fields%mass(k),  merge_fields%pres_level(k), merge_fields%pres_n(k),  & 
-!!$            merge_fields%t_level(k), merge_fields%t_n(k), merge_fields%qv_n(k) &
-!!$            , k
-!!$    enddo
-!!$    stop  
 
     end subroutine merge_data
 

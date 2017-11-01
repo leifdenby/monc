@@ -42,8 +42,7 @@ IF (lhook) CALL dr_hook('LW_CONTROL_DEFAULT',zhook_in,zhook_handle)
 
 ! Spectral region and bands
 lw_control%isolir     = ip_infra_red
-lw_control%first_band = 5
-lw_control%last_band = 5
+lw_control%first_band = 1
 
 ! Physical processes
 lw_control%l_gas          = .TRUE.
@@ -91,7 +90,7 @@ lw_control%min_view_lat = 0.0
 lw_control%l_solar_tail_flux      = .FALSE.
 lw_control%i_gas_overlap          = 2 ! set to 2 (random overlap, slow) 1 = water vapour only 
 !                                     ! 5 = fast gas overlap
-lw_control%i_gas                  = 14 ! forces gas to be vapour only when i_gas_overlap = 1 
+lw_control%i_gas                  = 2 ! forces gas to be vapour only when i_gas_overlap = 1 
 lw_control%i_cloud_representation = ip_cloud_ice_water
 lw_control%i_overlap              = ip_max_rand
 lw_control%i_inhom                = ip_homogeneous
