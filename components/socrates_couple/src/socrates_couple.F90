@@ -359,29 +359,6 @@ contains
 
        call rad_ctl(current_state, sw_spectrum, lw_spectrum,    &
              mcc, socrates_opt, merge_fields, socrates_derived_fields)
-
-!!$       ! work out heating rates
-!!$       current_state%sth_sw%data(1,jcol, icol) = 0.0
-!!$       current_state%sth_lw%data(1,jcol, icol) = 0.0
-!!$       do k = 2, k_top
-!!$         current_state%sth_sw%data(k,jcol, icol) = & 
-!!$               -(socrates_derived_fields%flux_net_sw(k,target_y_index, target_x_index) &
-!!$               - socrates_derived_fields%flux_net_sw(k-1,target_y_index, target_x_index)) &
-!!$               * socrates_derived_fields%radiation_factor(k)
-!!$         socrates_derived_fields%swrad_hr(k,target_y_index, target_x_index) = &
-!!$              current_state%sth_sw%data(k,jcol, icol)
-!!$         
-!!$         current_state%sth_lw%data(k,jcol, icol) = &
-!!$               -(socrates_derived_fields%flux_net_lw(k,target_y_index, target_x_index) &
-!!$               - socrates_derived_fields%flux_net_lw(k-1,target_y_index, target_x_index)) &
-!!$               * socrates_derived_fields%radiation_factor(k)
-!!$         socrates_derived_fields%lwrad_hr(k,target_y_index, target_x_index) = &
-!!$              current_state%sth_lw%data(k,jcol, icol)
-
-!!$         socrates_derived_fields%totrad_hr(k,target_y_index, target_x_index) = &
-!!$              socrates_derived_fields%lwrad_hr(k,target_y_index, target_x_index) + &
-!!$              socrates_derived_fields%swrad_hr(k,target_y_index, target_x_index)
-!!$       enddo
        
        ! This is needed for JULES coupling. Including irrespective of JULES enabled
        ! assign downward fluxes at the surface
@@ -391,7 +368,7 @@ contains
          socrates_derived_fields%flux_down_lw(1, target_y_index, target_x_index)
        
     endif
-    
+
     ! update the current_state sth
     current_state%sth%data(:, jcol, icol) = &
          current_state%sth%data(:, jcol, icol) +  &

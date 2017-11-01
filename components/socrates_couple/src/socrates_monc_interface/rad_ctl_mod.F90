@@ -128,6 +128,11 @@ subroutine rad_ctl(current_state, sw_spectrum, lw_spectrum, &
           merge_fields%sw_heat_rate_radlevs(mcc%irad_levs:mcc%irad_levs+2-k_top:-1)
      socrates_derived_fields%swrad_hr(:,target_y_index, target_x_index) = &
           current_state%sth_sw%data(:,jcol, icol)
+     ! convert dT/dt to dTH/dt
+     current_state%sth_sw%data(:, jcol, icol) = & 
+         current_state%sth_sw%data(:, jcol, icol)* &
+         current_state%global_grid%configuration%vertical%prefrcp(:)
+
   else
      do k = 1, k_top
         socrates_derived_fields%flux_up_sw(k,target_y_index, target_x_index) = &
@@ -195,6 +200,11 @@ subroutine rad_ctl(current_state, sw_spectrum, lw_spectrum, &
      !     NB: the +2 is becasue n=1 is below the surface (comment from LEM)
   current_state%sth_lw%data(2:k_top,jcol, icol) = &
           merge_fields%lw_heat_rate_radlevs(mcc%irad_levs:mcc%irad_levs+2-k_top:-1)
+  ! convert dT/dt to dTH/dt
+  current_state%sth_lw%data(:, jcol, icol) = & 
+         current_state%sth_lw%data(:, jcol, icol)* &
+         current_state%global_grid%configuration%vertical%prefrcp(:)
+
   socrates_derived_fields%lwrad_hr(:,target_y_index, target_x_index) = &
        current_state%sth_lw%data(:,jcol, icol)
   
@@ -206,13 +216,6 @@ subroutine rad_ctl(current_state, sw_spectrum, lw_spectrum, &
           radout%flux_down(1,mcc%irad_levs+1-k,1)
   enddo
 
-!  do k = 1, k_top
-!     print *, current_state%sth_lw%data(k,jcol, icol)*86400.0, &
-!          current_state%global_grid%configuration%vertical%zn(k), &
-!          socrates_derived_fields%flux_up_lw(k,target_y_index, target_x_index), &
-!          socrates_derived_fields%flux_down_lw(k,target_y_index, target_x_index)
-!  enddo
-  
   socrates_derived_fields%totrad_hr(:,target_y_index, target_x_index) = &
        socrates_derived_fields%lwrad_hr(:,target_y_index, target_x_index) + &
        socrates_derived_fields%swrad_hr(:,target_y_index, target_x_index)
@@ -220,7 +223,6 @@ subroutine rad_ctl(current_state, sw_spectrum, lw_spectrum, &
   CALL deallocate_out(radout)
   CALL deallocate_aer_prsc(aer)
   CALL deallocate_aer(aer)
-!!$  CALL deallocate_cld_mcica(cld)
   CALL deallocate_bound(bound)
   CALL deallocate_cld_prsc(cld)
   CALL deallocate_cld(cld)
