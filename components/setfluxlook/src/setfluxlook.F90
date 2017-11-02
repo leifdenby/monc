@@ -13,6 +13,8 @@ module setfluxlook_mod
   use logging_mod, only : LOG_INFO, LOG_WARN, LOG_ERROR, LOG_DEBUG, log_master_log, log_log, log_get_logging_level
   use q_indices_mod, only: get_q_index, standard_q_names
   use interpolation_mod, only: interpolate_point_linear_1d
+  use naming_conventions_mod
+
   implicit none
 
 #ifndef TEST_MODE
@@ -28,10 +30,12 @@ module setfluxlook_mod
      
   integer, parameter :: LOOKUP_ENTRIES = 80    !< Number of entries for MO lookup tables
   integer, parameter :: MAX_FILE_LEN=200       !< Maximum length of surface condition input filename
-  integer, parameter :: MAX_SURFACE_INPUTS=50  !< Specifies the maximum number of surface inputs through configuration file
+  integer, parameter :: MAX_SURFACE_INPUTS=750  !< Specifies the maximum number of surface inputs through configuration file
                                                !! Inputs through netcdf files are not limitted by this.
   
   character(MAX_FILE_LEN) :: input_file
+
+  character(len=STRING_LENGTH) :: units_surface_temp='unset'  ! units of theta variable forcing
 
   real(kind=DEFAULT_PRECISION) :: max_change_buoyancy_flux
   real(kind=DEFAULT_PRECISION), allocatable :: surface_boundary_input_times(:)
@@ -273,8 +277,12 @@ contains
          current_state%time, surface_temp, &
          extrapolate='constant') 
       
-      !surface_temp = surface_temp + 273.15_DEFAULT_PRECISION
-      
+      select case(trim(units_surface_temp))
+      case(degC) ! degrees C
+         surface_temp = surface_temp + 273.15_DEFAULT_PRECISION
+      case default ! kelvin
+      end select
+
       if (current_state%saturated_surface)then
         current_state%surface_vapour_mixing_ratio = qsaturation(surface_temp,current_state%surface_pressure*0.01)
       else
@@ -321,7 +329,7 @@ contains
        "type_of_surface_boundary_conditions")
     current_state%use_time_varying_surface_values=options_get_logical(current_state%options_database, &
        "use_time_varying_surface_values")
-
+  
     current_state%saturated_surface = .true. ! We will change this if we find some humidity data
 
     input_file=options_get_string(current_state%options_database, "surface_conditions_file")
@@ -348,6 +356,8 @@ contains
         surface_temperatures=0.0
         surface_humidities=0.0
         call options_get_real_array(current_state%options_database, "surface_temperatures", surface_temperatures)
+        units_surface_temp=options_get_string(current_state%options_database, "units_surface_temp")
+        
         call options_get_real_array(current_state%options_database, "surface_humidities", surface_humidities)
         number_input_humidities=options_get_array_size(current_state%options_database, "surface_humidities")
       end if

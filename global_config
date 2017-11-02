@@ -153,6 +153,7 @@ shflx_sen=0.0
 timhf=0.0
 shflx_lat=0.0
 surface_temperature_values=0.0
+units_surface_temp=kelvin
 surface_mixing_ratio_values=0.0
 surface_sensible_heat_flux_values=0.0
 surface_latent_heat_flux_values=0.0
@@ -191,7 +192,6 @@ use_viscosity_and_diffusion=.true.
 galilean_transformation=.true.
 use_surface_fluxes=.true.
 backscatter=.false.
-type_of_surface_boundary_conditions=0
 halo_depth=2
 
 galilean_transformation=.false.

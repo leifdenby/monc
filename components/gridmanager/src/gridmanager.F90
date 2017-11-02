@@ -310,7 +310,6 @@ contains
     end if
 
     if (l_init_pl_q)then
-       print *, 'q initialisation'
       nq_init=size(names_init_pl_q)
       allocate(z_init_pl_q(options_get_array_size(current_state%options_database, "z_init_pl_q")))
       call options_get_real_array(current_state%options_database, "z_init_pl_q", z_init_pl_q)

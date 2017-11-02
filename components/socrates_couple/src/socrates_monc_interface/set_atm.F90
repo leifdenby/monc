@@ -89,12 +89,6 @@ do l=1, atm%n_profile
    
 enddo 
 
-!print *, 'k, p_level, t_level, p_n, t_n, rhon, mass'
-!print *,'0.0', atm%p_level(1,0), atm%t_level(1,0)
-!do k = 1, atm%n_layer
-!   print *, k, atm%p_level(1,k), atm%t_level(1,k), atm%p(1,k), atm%t(1,k), atm%!density(1, k), atm%mass(1,k)
-!enddo
-
 DO i=1, spectrum%gas%n_absorb
    DO k=1, atm%n_layer
       DO l=1, atm%n_profile

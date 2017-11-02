@@ -47,9 +47,6 @@ contains
     tvd_dgs_terms%adv_w_dgs(:,:,:) = 0.0
     tvd_dgs_terms%adv_th_dgs(:,:,:) = 0.0
 
-    print*, size(tvd_dgs_terms%adv_th_dgs,1), size(tvd_dgs_terms%adv_th_dgs,2), &
-          size(tvd_dgs_terms%adv_th_dgs,3) 
-
     if (current_state%number_q_fields > 0) then  
        allocate(tvd_dgs_terms%adv_q_dgs(k_top, y_local, x_local, current_state%number_q_fields))
        tvd_dgs_terms%adv_q_dgs(:,:,:,:)= 0.0
