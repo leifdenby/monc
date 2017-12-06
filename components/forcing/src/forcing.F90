@@ -668,7 +668,7 @@ contains
         current_state%l_forceq(iq)=.true.
 
         ! Unit conversions...
-        if (constant_forcing_type_u==TENDENCY)then
+        if (constant_forcing_type_q==TENDENCY)then
           select case(trim(units_q_force(n)))
           case(kg_per_kg_per_day)
             current_state%global_grid%configuration%vertical%q_force(:,iq) = &
