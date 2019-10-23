@@ -28,9 +28,12 @@ module forcing_mod
 #endif
 
   character(len=*), parameter ::                              &
-       TIME_KEY =                  "time",                    & !<  NetCDF data time key
+       TIME_KEY =                  "time",                    &  !<  NetCDF data time key
        Z_KEY =                     "z",                       &  !<  NetCDF data height(z) key
-       WSUBS_KEY =                 "wsubs"                       !<  NetCDF data subsidence velocity
+       LEV_KEY =                   "lev",                     &  !<  NetCDF data pressure level key
+       TH_KEY =                    "theta_tendency",          &  !<  NetCDF data theta tendency key
+       Q_KEY =                     "q_tendency",              &  !<  NetCDF data water vapour tendency key
+       WSUBS_KEY =                 "wsubs"                       !<  NetCDF data subsidence velocity key 
   
   integer, parameter :: MAX_FILE_LEN=200       !< Maximum length of surface condition input filename
   character(MAX_FILE_LEN) :: input_file
@@ -84,6 +87,8 @@ module forcing_mod
   logical :: relax_to_initial_theta_profile ! For relaxation, use initial profile as the target 
 
   logical :: use_time_varying_subsidence ! Use time dependent subsidence veocity (read from file)
+  logical :: use_time_varying_theta      ! Use time dependent theta forcing (read from file)
+  logical :: use_time_varying_q          ! Use time dependent water vapour forcing (read from file)
 
   logical :: l_subs_pl_theta ! if .true. then subsidence applied to theta field
   logical :: l_subs_pl_q     ! if .true. then subsidence applied to q fields
@@ -114,6 +119,14 @@ module forcing_mod
   integer :: iqv=0, iql=0, iqr=0, iqi=0, iqs=0, iqg=0
 
   integer :: diagnostic_generation_frequency
+
+  ! Contains time varying forcing profile information
+  type time_varying_forcing_profile
+    real(kind=DEFAULT_PRECISION), allocatable :: forcing_times(:)    ! input forcing times
+    real(kind=DEFAULT_PRECISION), allocatable :: forcing_values(:,:) ! input forcing values, interpolated to MONC heights
+  end type time_varying_forcing_profile
+
+  type(time_varying_forcing_profile), allocatable :: time_varying_subsidence, time_varying_theta, time_varying_q
 
   public forcing_get_descriptor
 
@@ -517,10 +530,36 @@ contains
     if (current_state%graupel_water_mixing_ratio_index > 0) &
          iqg = current_state%graupel_water_mixing_ratio_index
 
-    ! Subsidence forcing initialization
-    
+    ! time_varying forcing initialization
     use_time_varying_subsidence= &
          options_get_logical(current_state%options_database, "use_time_varying_subsidence")
+    if (use_time_varying_subsidence) then
+        allocate(time_varying_subsidence)
+        call init_time_varying_forcing(time_varying_subsidence, WSUBS_KEY,                  &
+             options_get_string(current_state%options_database, "varying_subsidence_file"), &
+             options_get_string(current_state%options_database, "varying_subsidence_coordinate"))
+    end if
+
+    use_time_varying_theta= &
+         options_get_logical(current_state%options_database, "use_time_varying_theta")
+    if (use_time_varying_theta) then
+        allocate(time_varying_theta)
+        call init_time_varying_forcing(time_varying_theta, TH_KEY,                     &
+             options_get_string(current_state%options_database, "varying_theta_file"), &
+             options_get_string(current_state%options_database, "varying_theta_coordinate"))
+    end if
+
+    use_time_varying_q= &
+         options_get_logical(current_state%options_database, "use_time_varying_q")
+    if (use_time_varying_q) then
+        allocate(time_varying_q)
+        call init_time_varying_forcing(time_varying_q, Q_KEY,                      &
+             options_get_string(current_state%options_database, "varying_q_file"), &
+             options_get_string(current_state%options_database, "varying_q_coordinate"))
+    end if
+
+    ! Subsidence forcing initialization
+    
     l_subs_pl_theta=options_get_logical(current_state%options_database, "l_subs_pl_theta")
     l_subs_pl_q=options_get_logical(current_state%options_database, "l_subs_pl_q")
     subsidence_input_type=options_get_integer(current_state%options_database, "subsidence_input_type")
@@ -1495,5 +1534,18 @@ contains
       !deallocate(sdata)
     end if
   end subroutine read_single_forcing_variable
+
+  !> Sets up time-varying forcing profiles
+  !! @param tvdata The time-varying data structure
+  !! @param key The variable key (name) to access
+  !! @param filename The input NetCDF file name
+  !! @param coordinate The vertical coordinate of the input data [ height | pressure ]
+  subroutine init_time_varying_forcing(tvdata, key, filename, coordinate)
+    type(time_varying_forcing_profile), intent(inout) :: tvdata
+    character(len=*), intent(in) :: key, filename, coordinate
+
+
+  end subroutine init_time_varying_forcing
+
 
 end module forcing_mod

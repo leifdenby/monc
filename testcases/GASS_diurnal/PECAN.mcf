@@ -10,13 +10,14 @@ lower_bc_enabled=.true.
 setfluxlook_enabled=.true. #This must be set to true if running with lower_bc
 viscosity_enabled=.true.
 diffusion_enabled=.true.
-coriolis_enabled=.false.
+coriolis_enabled=.true.
 damping_enabled=.true.
 forcing_enabled=.true. 
 randomnoise_enabled=.true.
 mean_profiles_enabled=.true. #This must be set to true if running with damping
 casim_enabled=.true.
 casim_profile_dgs_enabled=.true.
+socrates_couple_enabled=.true.
 th_advection_enabled=.true.
 iobridge_enabled=.true.
 profile_diagnostics_enabled=.true.
@@ -200,7 +201,7 @@ z0=0.0002
 z0th=0.0002
 
 # Coriolis
-fcoriol=0.0000376
+fcoriol=9.07875e-5       # f = 2 * 7.292e-5 * sin(latitude_deg)  [see radiation latitude for consistency]
 geostrophic_wind_rate_of_change_in_x=0.0
 geostrophic_wind_rate_of_change_in_y=0.0
 surface_geostrophic_wind_x=-5.0
@@ -211,13 +212,24 @@ dmptim=0.0002
 zdmp=20000.0
 hdmp=5000.0
 
+# Time-varying forcing 
+use_time_varying_subsidence=.false.
+varying_subsidence_file=
+varying_subsidence_coordinate=
+use_time_varying_theta=.true.
+varying_theta_file=''
+varying_theta_coordinate=pressure
+use_time_varying_q=.true.
+varying_q_file=''
+varying_q_coordinate=pressure
+
 # Subsidence profile
 l_subs_pl_theta=.false.
 l_subs_pl_q=.false.
 
 # Large-scale forcing
 # Add om a component to force theta
-l_constant_forcing_theta=.true.
+l_constant_forcing_theta=.false.
 l_constant_forcing_q=.false.
 l_constant_forcing_u=.true.
 l_constant_forcing_v=.true.
@@ -235,11 +247,6 @@ forcing_timescale_u=21600.
 forcing_timescale_v=21600.
 
 # Forcing profiles
-l_constant_forcing_theta_z2pressure=.true.
-units_theta_force=K/day
-z_force_pl_theta=0., 1000., 2200., 4100., 9500., 11500., 13000., 14000., 40000.0
-convert_input_theta_from_temperature=.true.
-f_force_pl_theta=-1.7, -1.0, -0.85, -0.85, -1.3, -0.85, -0.1, 0.0, 0.0
 
 # surface flux config
 # type_of_surface_boundary_conditions=PRESCRIBED_FLUX=0
@@ -260,3 +267,51 @@ iopt_inuc=0
 process_level=0
 l_override_checks = .true.
 number_q_fields=11
+
+
+#----------------------------------------------------------------------------------------------
+# SOCRATES inputs
+mcc_temperature_profile  = components/socrates_couple/data/mcc_profiles/one_km/tro.t.nc
+mcc_vapour_profile       = components/socrates_couple/data/mcc_profiles/one_km/tro.q.nc
+mcc_ozone_profile        = components/socrates_couple/data/mcc_profiles/one_km/tro.o3.nc
+# Add options for rad_cntrl
+spectral_file_lw           = /projects/monc/fra23/socrates_spectra/ga7/sp_lw_ga7
+spectral_file_sw           = /projects/monc/fra23/socrates_spectra/ga7/sp_sw_ga7
+
+# 5 is clear sky, 2 is cloud (ice and liquid no overlap), 1 (ice and liquid full overlap)
+i_cloud_representation  = 2
+
+## Time and location variables for socrates
+l_360 = .false.           #  360 days in year as opposed to 365 (a UM thing
+                         #  in the LEM, is this still required??)
+l_solar_fixed  = .false. # true equals fixed insolation using value in sol_fixed
+l_no_solar     = .true.
+solar_fixed    = 1361.0  # prescribed insolation value
+sec_fixed      = 1.15470054   # prescribed 1/cos(solar_zenith_angle)
+latitude       = 38.5    # latitude for the location of radiation calc [match to coriolis!]
+longitude      = -98.75  # longitude for the location of radiation calc
+rad_start_year = 2015.0  # simulation year for earth sun distance
+rad_start_day  = 152.0   # day number from January 1st
+rad_int_time   = 300.0   # Radiation integration timestep [s]; if <= 0, call every timestep
+                         #  [trj: if time_basis=.true. above, this should get some consideration based on those timings
+                         #    ...probably.
+                         #    might be best to set it to the sampling_frequency]
+rad_start_time = 0.0     # Start time for the radiation 
+                         #  [trj: I think this is seconds in model time, and it should probably always be zero]
+
+## Surface albedo variables for socrates
+l_variable_srf_albedo = .false. # not coded yet but will allow variable
+                                # surface albedo with solar zenith angle
+surface_albedo = 0.04    # surface albedo (fixed in time)
+
+mphys_nq_l=1 # cloud liquid mass
+mphys_nd_l=0 # cloud drop number
+mphys_nq_r=1 # rain mass
+mphys_nq_i=1 # ice mass
+mphys_nq_s=1 # snow mass
+mphys_nq_g=1 # graupel mass
+
+l_fix_re       = .true.
+fixed_cloud_re = 10.0 # effective radius for cloud droplets 10 microns
+fixed_ice_re   = 30.0 # effective radius for ice 30 microns
+#----------------------------------------------------------------------------------------------

@@ -242,7 +242,7 @@ contains
        else
           socrates_opt%l_rad_calc = &
                ((current_state%time - &
-               (current_state%rad_last_time + socrates_opt%rad_int_time)) > 0.0)
+               (current_state%rad_last_time + socrates_opt%rad_int_time)) .ge. 0.0)
        endif
     endif
 
@@ -264,7 +264,7 @@ contains
                (socrates_opt%rad_start_time + ((current_state%time+local_dtm)/3600.0))  &
                - (24.0*(socrates_opt%rad_day-socrates_opt%rad_start_day))
           ! set the radiation timestep
-          if (socrates_opt%rad_int_time == 0) then
+          if (socrates_opt%rad_int_time .le. 0) then
              socrates_derived_fields%dt_secs = local_dtm
           else
              socrates_derived_fields%dt_secs = socrates_opt%rad_int_time
