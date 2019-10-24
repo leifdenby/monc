@@ -139,7 +139,7 @@ vgal=0.0
 
 # Simple setup configuration
 thref0=298.7259
-surface_pressure=100000.
+surface_pressure=96000.
 surface_reference_pressure=100000.
 x_size=64
 y_size=64
@@ -212,16 +212,28 @@ dmptim=0.0002
 zdmp=20000.0
 hdmp=5000.0
 
-# Time-varying forcing 
+# Time-varying forcing --------------------------------------------------------------------------------------------
+# enter files as the base directory-relative path to file
+# specify the vertical coordinate of the forcing as 'height' [m] or 'pressure' [Pa]
+#  - expecting NetCDF variable names to be "wsubs", "theta_tendency", or "q_tendency" for
+#    subsidence, theta, and water vapour forcing time-height profiles, respectively.
+#  - expecting temporal coordinate variable/dimension to be called "time".
+#  - expecting theta_tendency as K/s
+#    allowed to be temperature (instead of theta), but requires convert_input_theta_from_temperature=.true.
+#  - expecting q_tendecy as kg/kg/s
 use_time_varying_subsidence=.false.
 varying_subsidence_file=
-varying_subsidence_coordinate=
+varying_subsidence_coordinate=         # 'height' [m] or 'pressure' [Pa]
+
 use_time_varying_theta=.true.
-varying_theta_file=''
-varying_theta_coordinate=pressure
+varying_theta_file=testcases/GASS_diurnal/pecan60varanaPECANC1.c1.20150601.000000_reformed.nc
+varying_theta_coordinate=pressure      # 'height' [m] or 'pressure' [Pa]
+convert_input_theta_from_temperature=.true.
+
 use_time_varying_q=.true.
-varying_q_file=''
-varying_q_coordinate=pressure
+varying_q_file=testcases/GASS_diurnal/pecan60varanaPECANC1.c1.20150601.000000_reformed.nc
+varying_q_coordinate=pressure          # 'height' [m] or 'pressure' [Pa]
+
 
 # Subsidence profile
 l_subs_pl_theta=.false.
@@ -249,14 +261,11 @@ forcing_timescale_v=21600.
 # Forcing profiles
 
 # surface flux config
-# type_of_surface_boundary_conditions=PRESCRIBED_FLUX=0
+# type_of_surface_boundary_conditions=PRESCRIBED_FLUX=0, PRESCRIBED_VALUES=1
 use_surface_boundary_conditions=.true.
-use_time_varying_surface_values= .false.
-type_of_surface_boundary_conditions = 1
-surface_boundary_input_times = 0
-surface_temperatures = 300.
-surface_latent_heat_flux   = 0.                                                                                   
-surface_sensible_heat_flux = 0.
+use_time_varying_surface_values= .true.
+surface_conditions_file=testcases/GASS_diurnal/pecan60varanaPECANC1.c1.20150601.000000_reformed.nc
+type_of_surface_boundary_conditions = 0
 
 #CASIM options
 option=22222

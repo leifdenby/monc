@@ -13,7 +13,9 @@ module forcing_mod
   use science_constants_mod, only: seconds_in_a_day
   use naming_conventions_mod
   use registry_mod, only : is_component_enabled
-  use logging_mod, only : LOG_ERROR, log_master_log, LOG_DEBUG, log_get_logging_level, log_log
+  use logging_mod, only : LOG_ERROR, log_master_log, LOG_DEBUG, log_get_logging_level, log_log, LOG_INFO
+  use conversions_mod, only : conv_to_string
+
 
   ! In order to set forcing from a netcdf file, need the following netcdf modules
   use netcdf, only : nf90_noerr, nf90_global, nf90_nowrite,    &
@@ -127,6 +129,9 @@ module forcing_mod
   end type time_varying_forcing_profile
 
   type(time_varying_forcing_profile), allocatable :: time_varying_subsidence, time_varying_theta, time_varying_q
+
+  logical :: convert_input_theta_from_temperature=.false. ! If .true. input forcing data is for temperature and should
+                                                          ! be converted to theta (potential temerature).
 
   public forcing_get_descriptor
 
@@ -488,9 +493,6 @@ contains
     character(len=STRING_LENGTH) :: units_u_force='unset'  ! units of theta variable forcing
     character(len=STRING_LENGTH) :: units_v_force='unset'  ! units of theta variable forcing
 
-    logical :: convert_input_theta_from_temperature=.false. ! If .true. input forcing data is for temperature and should
-                                                            ! be converted to theta (potential temerature).
-
     integer :: k
     logical :: l_qdiag
 
@@ -533,9 +535,9 @@ contains
     ! time_varying forcing initialization
     use_time_varying_subsidence= &
          options_get_logical(current_state%options_database, "use_time_varying_subsidence")
-    if (use_time_varying_subsidence) then
+    if ((l_subs_pl_theta .or. l_subs_pl_q) .and. use_time_varying_subsidence) then
         allocate(time_varying_subsidence)
-        call init_time_varying_forcing(time_varying_subsidence, WSUBS_KEY,                  &
+        call init_time_varying_forcing(current_state, time_varying_subsidence, WSUBS_KEY,                  &
              options_get_string(current_state%options_database, "varying_subsidence_file"), &
              options_get_string(current_state%options_database, "varying_subsidence_coordinate"))
     end if
@@ -543,8 +545,10 @@ contains
     use_time_varying_theta= &
          options_get_logical(current_state%options_database, "use_time_varying_theta")
     if (use_time_varying_theta) then
+        convert_input_theta_from_temperature=options_get_logical(current_state%options_database, &
+                                                                       "convert_input_theta_from_temperature")
         allocate(time_varying_theta)
-        call init_time_varying_forcing(time_varying_theta, TH_KEY,                     &
+        call init_time_varying_forcing(current_state, time_varying_theta, TH_KEY,                     &
              options_get_string(current_state%options_database, "varying_theta_file"), &
              options_get_string(current_state%options_database, "varying_theta_coordinate"))
     end if
@@ -553,7 +557,7 @@ contains
          options_get_logical(current_state%options_database, "use_time_varying_q")
     if (use_time_varying_q) then
         allocate(time_varying_q)
-        call init_time_varying_forcing(time_varying_q, Q_KEY,                      &
+        call init_time_varying_forcing(current_state, time_varying_q, Q_KEY,                      &
              options_get_string(current_state%options_database, "varying_q_file"), &
              options_get_string(current_state%options_database, "varying_q_coordinate"))
     end if
@@ -566,8 +570,6 @@ contains
     l_subs_local_theta=options_get_logical(current_state%options_database, "subsidence_local_theta")
     l_subs_local_q=options_get_logical(current_state%options_database, "subsidence_local_q")
 
-    input_file=options_get_string(current_state%options_database, "forcing_file")
-
     if ((l_subs_pl_theta .and. .not. l_subs_local_theta) .or. &
        (l_subs_pl_q .and. .not. l_subs_local_q))then
       if (.not. is_component_enabled(current_state%options_database, "mean_profiles")) then
@@ -575,49 +577,20 @@ contains
       end if
     end if
 
-    if (l_subs_pl_theta .or. l_subs_pl_q)then
-       ! Read in the input_file
-       if (trim(input_file)=='' .or. trim(input_file)=='None') then
-          if (.not. use_time_varying_subsidence) then 
-             allocate(z_subs_pl(options_get_array_size(current_state%options_database, "z_subs_pl")), &
-                  f_subs_pl(options_get_array_size(current_state%options_database, "f_subs_pl")))
-             call options_get_real_array(current_state%options_database, "z_subs_pl", z_subs_pl)
-             call options_get_real_array(current_state%options_database, "f_subs_pl", f_subs_pl)      
-             ! Get profiles
-             zgrid=current_state%global_grid%configuration%vertical%z(:)
-             call piecewise_linear_1d(z_subs_pl(1:size(z_subs_pl)), f_subs_pl(1:size(f_subs_pl)), zgrid, &
-                  current_state%global_grid%configuration%vertical%w_subs)
-             if (subsidence_input_type==DIVERGENCE) then
-                current_state%global_grid%configuration%vertical%w_subs(:) = &
-                     -1.0*current_state%global_grid%configuration%vertical%w_subs(:)*zgrid(:)
-             end if
-          else
-             call log_master_log(LOG_ERROR, "timevarying forcing selected but no forcing file provided - STOP")
-          endif
-          deallocate(z_subs_pl, f_subs_pl)  
-       else 
-          if (use_time_varying_subsidence) then
-             call check_forcing_status(nf90_open(path = trim(input_file), mode = nf90_nowrite, ncid = ncid))
-             if (log_get_logging_level() .ge. LOG_DEBUG) then
-                call log_master_log(LOG_DEBUG, "Reading in subsidence velocity profile from:"//trim(input_file) )
-             end if
-          
-             call read_2d_forcing_dimensions(ncid, time_dim,z_dim)
-             allocate(forcing_input_times(time_dim), z_subs_pl(z_dim), f_subs_2d(z_dim, time_dim))
-             call read_2d_forcing_variables(trim(input_file), ncid, time_dim, forcing_input_times, &
-                  z_dim, z_subs_pl, WSUBS_KEY, f_subs_2d)
-             call check_forcing_status(nf90_close(ncid))
-          
-             zgrid=current_state%global_grid%configuration%vertical%z(:)
-             ! interpolate forcing levels onto the MONC vertical grid (zgrid), for all forcing times
-             allocate(current_state%global_grid%configuration%vertical%wsubs_time_vary(size(zgrid), time_dim))
-             call piecewise_linear_2d(z_subs_pl(1:z_dim), forcing_input_times(1:time_dim), &
-                  f_subs_2d(1:z_dim,1:time_dim), zgrid,                                    &
-                  current_state%global_grid%configuration%vertical%wsubs_time_vary)
-          else
-             call log_master_log(LOG_ERROR, "constant forcing from file selected but not coded - STOP") 
-          endif
-       endif
+    if ((l_subs_pl_theta .or. l_subs_pl_q) .and. .not. use_time_varying_subsidence) then
+      allocate(z_subs_pl(options_get_array_size(current_state%options_database, "z_subs_pl")), &
+           f_subs_pl(options_get_array_size(current_state%options_database, "f_subs_pl")))
+      call options_get_real_array(current_state%options_database, "z_subs_pl", z_subs_pl)
+      call options_get_real_array(current_state%options_database, "f_subs_pl", f_subs_pl)      
+      ! Get profiles
+      zgrid=current_state%global_grid%configuration%vertical%z(:)
+      call piecewise_linear_1d(z_subs_pl(1:size(z_subs_pl)), f_subs_pl(1:size(f_subs_pl)), zgrid, &
+           current_state%global_grid%configuration%vertical%w_subs)
+      if (subsidence_input_type==DIVERGENCE) then
+        current_state%global_grid%configuration%vertical%w_subs(:) = &
+            -1.0*current_state%global_grid%configuration%vertical%w_subs(:)*zgrid(:)
+      end if
+      deallocate(z_subs_pl, f_subs_pl)  
     end if
 
    ! Time independent large-scale forcing (proxy for e.g. advection/radiation)
@@ -915,8 +888,9 @@ contains
   !! @param current_state The current model state_mod
   subroutine timestep_callback(current_state)
     type(model_state_type), target, intent(inout) :: current_state
-    integer :: current_x_index, current_y_index, target_x_index, target_y_index
+    integer :: current_x_index, current_y_index, target_x_index, target_y_index, k
     logical :: calculate_diagnostics
+    real(kind=DEFAULT_PRECISION), dimension(current_state%local_grid%size(Z_INDEX)) :: temp_prof
 
     calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
                              (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
@@ -976,10 +950,51 @@ contains
     !     assign to w_subs, which is used in apply_subsidence_to...
     !     
     if (use_time_varying_subsidence) then 
-       call interpolate_point_linear_2d(forcing_input_times,                             &
-            current_state%global_grid%configuration%vertical%wsubs_time_vary,            &
+       call interpolate_point_linear_2d(time_varying_subsidence%forcing_times,         &
+            time_varying_subsidence%forcing_values,                                    &
             current_state%time, current_state%global_grid%configuration%vertical%w_subs)
     endif ! if not w_subs is constant and set in the init_callback
+
+
+    ! Apply time-varying theta and q (vapour only).
+    ! This functionality permits the user to apply a constant forcing separately as long as the 
+    !   theta forcing is consistently in theta or absolute temperature units in both cases because
+    !   they share the convert_input_theta_from_temperature logical.
+    if (use_time_varying_theta) then
+       ! Obtain the profile, interpolated to the current time
+       call interpolate_point_linear_2d(time_varying_theta%forcing_times,         &
+            time_varying_theta%forcing_values,                                    &
+            current_state%time, temp_prof)
+
+      ! Unit conversions
+      if (convert_input_theta_from_temperature)then ! Input is temperature not theta
+        temp_prof = temp_prof * current_state%global_grid%configuration%vertical%prefrcp(:)  
+      end if
+
+      ! Record the diagnostic and apply the forcing
+      dtheta_profile_diag = dtheta_profile_diag + temp_prof
+      do k=2,current_state%local_grid%size(Z_INDEX)-1
+        current_state%sth%data(k,current_state%column_local_y,current_state%column_local_x) = &
+             current_state%sth%data(k,current_state%column_local_y,current_state%column_local_x) &
+             + temp_prof(k)
+      end do
+    endif ! use_time_varying_theta
+
+    if (use_time_varying_q) then
+       ! Obtain the profile, interpolated to the current time
+       call interpolate_point_linear_2d(time_varying_q%forcing_times,         &
+            time_varying_q%forcing_values,                                    &
+            current_state%time, temp_prof)
+
+      ! Record the diagnostic and apply the forcing
+      dq_profile_diag(:,iqv) = dq_profile_diag(:,iqv) + temp_prof
+      do k=2,current_state%local_grid%size(Z_INDEX)-1
+        current_state%sq(iqv)%data(k,current_state%column_local_y,current_state%column_local_x) = &
+             current_state%sq(iqv)%data(k,current_state%column_local_y,current_state%column_local_x) &
+             + temp_prof(k)
+      end do
+    endif ! use_time_varying_q
+
 
     if (l_subs_pl_theta) then
       call apply_subsidence_to_flow_fields(current_state)
@@ -1446,9 +1461,12 @@ contains
   
   !> Reads the dimensions for forcing from the NetCDF file. This routine assumes the forcing  uses only time and height.
   !! @param ncid The NetCDF file id
+  !! @param vert_key The vertical coordinate key of the input data 
   !! @param time_dim Number of elements in the time dimension
-  subroutine read_2d_forcing_dimensions(ncid, time_dim, z_dim)
+  !! @param z_dim Number of elements in the vertical dimension
+  subroutine read_2d_forcing_dimensions(ncid, vert_key, time_dim, z_dim)
     integer, intent(in) :: ncid
+    character(len=*), intent(in) :: vert_key
     integer, intent(out) ::  time_dim
     integer, intent(out) ::  z_dim
     integer ::  time_dimid, z_dimid
@@ -1456,7 +1474,7 @@ contains
     call check_forcing_status(nf90_inq_dimid(ncid, TIME_KEY, time_dimid))
     call check_forcing_status(nf90_inquire_dimension(ncid, time_dimid, len=time_dim))
 
-    call check_forcing_status(nf90_inq_dimid(ncid, Z_KEY, z_dimid))
+    call check_forcing_status(nf90_inq_dimid(ncid, vert_key, z_dimid))
     call check_forcing_status(nf90_inquire_dimension(ncid, z_dimid, len=z_dim))
 
   end subroutine read_2d_forcing_dimensions
@@ -1465,14 +1483,15 @@ contains
   !! @param ncid The id of the NetCDF file
   !! @param time_dim The number of elements in the time dimension
   !! @param time The time data field that is to be read
+  !! @param vert_key The vertical coordinate key of the input data
   !! @param z_dim is the number of elements in the height dimension
   !! @param force_2d_key is the string that defines the forcing variable in teh NetCDF file
   !! @param force_2d_var is the forcing data field that is read with dimension (t_dim, z_dim)
-  subroutine read_2d_forcing_variables(filename, ncid, time_dim, time, z_dim, z_profile, &
+  subroutine read_2d_forcing_variables(filename, ncid, time_dim, time, vert_key, z_dim, z_profile, &
        force_2d_key, force_2d_var )
 
     character(*), intent(in) :: filename
-    character(len=*), intent(in) :: force_2d_key
+    character(len=*), intent(in) :: force_2d_key, vert_key
     integer, intent(in) :: ncid, time_dim, z_dim
     real(kind=DEFAULT_PRECISION), intent(inout) :: time(:), z_profile(:)
     real(kind=DEFAULT_PRECISION), dimension(:,:), allocatable, intent(inout) :: force_2d_var
@@ -1490,11 +1509,11 @@ contains
       call log_log(LOG_ERROR, "No recognized time variable found in"//trim(filename))
     end if
 
-    status=nf90_inq_varid(ncid, Z_KEY, variable_id)
+    status=nf90_inq_varid(ncid, vert_key, variable_id)
     if (status==nf90_noerr)then
-       call read_single_forcing_variable(ncid, Z_KEY, data1d=z_profile)
+       call read_single_forcing_variable(ncid, vert_key, data1d=z_profile)
     else
-      call log_log(LOG_ERROR, "No recognized height variable found in"//trim(filename))
+      call log_log(LOG_ERROR, "No recognized '"//trim(vert_key)//"' vertical coordinate variable found in"//trim(filename))
     end if
     
     status=nf90_inq_varid(ncid, force_2d_key, variable_id)
@@ -1536,14 +1555,65 @@ contains
   end subroutine read_single_forcing_variable
 
   !> Sets up time-varying forcing profiles
+  !! @param current_state Current model state
   !! @param tvdata The time-varying data structure
   !! @param key The variable key (name) to access
   !! @param filename The input NetCDF file name
   !! @param coordinate The vertical coordinate of the input data [ height | pressure ]
-  subroutine init_time_varying_forcing(tvdata, key, filename, coordinate)
+  subroutine init_time_varying_forcing(current_state, tvdata, key, filename, coordinate)
+    type(model_state_type), target, intent(inout) :: current_state
     type(time_varying_forcing_profile), intent(inout) :: tvdata
     character(len=*), intent(in) :: key, filename, coordinate
 
+    character(STRING_LENGTH) :: vert_key
+    integer :: ncid, time_dim_len, vert_dim_len  ! Input file parameters
+    real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: vert_coords   ! contains input vertical coordinates
+    real(kind=DEFAULT_PRECISION), dimension(:,:), allocatable :: input_forcing
+    real(kind=DEFAULT_PRECISION), dimension(current_state%local_grid%size(Z_INDEX)) :: vert_grid
+
+    ! Check for valid vertical coordinate specification
+    if (trim(coordinate) .eq. 'pressure') then
+      vert_key = LEV_KEY
+      if (key .eq. WSUBS_KEY) then
+        call piecewise_linear_1d(current_state%global_grid%configuration%vertical%zn(:),     &
+                                 current_state%global_grid%configuration%vertical%prefn(:),  &
+                                 current_state%global_grid%configuration%vertical%z(:),      &
+                                 vert_grid)    ! get pressure values on w-levels (z)
+      else
+        vert_grid = current_state%global_grid%configuration%vertical%prefn(:)
+      end if
+    else if (trim(coordinate) .eq. 'height') then
+      vert_key = Z_KEY
+      if (key .eq. WSUBS_KEY) then
+        vert_grid = current_state%global_grid%configuration%vertical%z(:)
+      else
+        vert_grid = current_state%global_grid%configuration%vertical%zn(:)
+      end if
+    else
+      call log_log(LOG_ERROR, "Must specify vertical coordinate for forcing file as 'height' [m] or 'pressure' [Pa] "// &
+                              "for '"//trim(key)//"' of file: "//trim(filename))
+    end if
+
+    ! open forcing file
+    call check_forcing_status(nf90_open(path = trim(filename), mode = nf90_nowrite, ncid = ncid))
+
+    ! read the dimension sizes and allocate space to receive the data
+    call read_2d_forcing_dimensions(ncid, trim(vert_key), time_dim_len, vert_dim_len)
+    allocate(tvdata%forcing_times(time_dim_len), vert_coords(vert_dim_len), input_forcing(vert_dim_len, time_dim_len), &
+             tvdata%forcing_values(size(vert_grid), time_dim_len) )
+
+    ! read the forcing coordinates and data, then close file
+    call read_2d_forcing_variables(trim(filename), ncid, time_dim_len, tvdata%forcing_times, &
+                                   trim(vert_key), vert_dim_len, vert_coords, &
+                                   key, input_forcing)
+    call check_forcing_status(nf90_close(ncid))
+
+
+    ! interpolate forcing levels onto the MONC vertical grid (vert_grid), for all forcing times
+    call piecewise_linear_2d(vert_coords, tvdata%forcing_times, input_forcing, &  ! input coordinates and data
+                             vert_grid, tvdata%forcing_values)                    ! output vertical coords and data
+    ! clean up
+    deallocate(vert_coords, input_forcing)
 
   end subroutine init_time_varying_forcing
 

@@ -29,7 +29,7 @@ export STDOUT_DIR=monc_stdout
 export CP_DIR=checkpoint_files
 export RUN_NAME=PECAN_dump_
 export NPES=np
-export MAX_CONTINUATION_RUNS=4
+export MAX_CONTINUATION_RUNS=2
 
 ulimit -c unlimited
 
