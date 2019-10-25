@@ -115,7 +115,7 @@ checkpoint_file="checkpoint_files/PECAN_dump.nc"     # Checkpoint file location 
 
 # Internal walltime configuration
 check_walltime_frequency=100                  # Frequency to check wall clock against walltime_limit [ts]
-walltime_limit=00:05:00                       # Internal wall clock time limit on simulation [hh:mm:ss]
+walltime_limit=00:18:00                       # Internal wall clock time limit on simulation [hh:mm:ss]
 
 # Advection choices (choose pw or tvd component schemes for flow, theta, and q advection)
 advection_flow_fields=pw

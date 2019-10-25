@@ -1,7 +1,7 @@
 #!/bin/bash --login
 #PBS -N PECAN
 #PBS -l select=1
-#PBS -l walltime=00:10:00
+#PBS -l walltime=00:20:00
 #PBS -j oe
 #PBS -P nexcs-n06
 #PBS -q development
@@ -29,7 +29,7 @@ export STDOUT_DIR=monc_stdout
 export CP_DIR=checkpoint_files
 export RUN_NAME=PECAN_dump_
 export NPES=np
-export MAX_CONTINUATION_RUNS=2
+export MAX_CONTINUATION_RUNS=10
 
 ulimit -c unlimited
 

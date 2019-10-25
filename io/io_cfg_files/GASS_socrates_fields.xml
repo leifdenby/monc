@@ -1,0 +1,48 @@
+<!--  Please enter any necessary conditions for the use of these diagnostics here.
+
+   1. This data is the same as that contained in socrated_fields.xml from the MONC trunk.
+
+   2. Contains both 3D and 2D fields. 
+
+   3. Requires:
+         socrates_couple_enabled=.true.
+
+-->
+
+<data-definition name="socrates_fields_data" frequency="{sampling_frequency}" namespace="SOCRATES">
+
+<!--  <field name="longwave_heating_rate_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/> -->
+  <field name="toa_up_shortwave" type="array" data_type="double" size="y,x" collective=true optional=true/>
+
+
+</data-definition>
+
+
+<data-handling namespace="SOCRATES">
+
+ <!-- Example of domain-mean perfromed on the IO-server beginning with a complete 3D field 
+
+     !!!  BUT - - longwave_heating_rate_local does not yet exist.  needs to be added to model and above ^^
+
+  <diagnostic field="tntrlw"  type="array" data_type="double" size="zn" units="m/s">
+        <operator name="arithmetic" result="tntrlw" equation="tntrlw_sum/({x_size}*{y_size})"/>
+        <communication name="reduction" operator="sum" result="tntrlw_sum" field="longwave_heating_rate_local" root="auto"/>
+  </diagnostic>
+-->
+ <!-- Example of domain-mean perfromed on the IO-server beginning with a complete 2D field -->
+  <diagnostic field="rsut"  type="scalar" data_type="double" units="kg/m^2">
+        <operator name="arithmetic" result="rsut" equation="rsut_sum/({x_size}*{y_size})"/>
+        <communication name="reduction" operator="sum" result="rsut_sum" field="rsut_reduced" root="auto"/>
+        <operator name="localreduce" operator="sum" result="rsut_reduced" field="toa_up_shortwave"/>
+  </diagnostic>
+
+</data-handling>
+
+
+<group name="socrates_fields" namespace="SOCRATES">
+
+  <member name="tntrlw"/>
+  <member name="rsut"/>
+
+</group>
+

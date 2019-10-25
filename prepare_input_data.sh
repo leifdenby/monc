@@ -13,7 +13,7 @@ data=$1     # input GASS data file
 base_day=$2 # day of year value to become zero time
 
 stamp=`echo $data | rev | cut -f 2- -d '.' | rev `
-ndata=${stamp}_reformed.nc 
+ndata=${stamp}_reformed_${base_day}.nc 
 
 echo "Upgrading $data   to   $ndata"
 
