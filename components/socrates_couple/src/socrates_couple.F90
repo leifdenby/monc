@@ -54,6 +54,8 @@ module socrates_couple_mod
   type (str_socrates_options) :: socrates_opt
   type (str_socrates_derived_fields) :: socrates_derived_fields
 
+  integer :: diagnostic_generation_frequency
+
   public socrates_couple_get_descriptor
 contains
 
@@ -199,6 +201,9 @@ contains
     ! allocate fields to pass to socrates
     call allocate_merge_data_fields(current_state, merge_fields, mcc)
 
+    ! Save the sampling_frequency to force diagnostic calculation on select time steps
+    diagnostic_generation_frequency=options_get_integer(current_state%options_database, "sampling_frequency")
+
   end subroutine initialisation_callback
 
   !> Called for each column per timestep this will apply a forcing term
@@ -214,6 +219,10 @@ contains
     integer :: target_x_index, target_y_index
    
     integer :: k ! look counter
+    logical :: calculate_diagnostics
+
+    calculate_diagnostics = (current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.    &
+                     (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0)
 
     ! No need to do radiation calculations in the halos or on the first timestep
     !
@@ -244,7 +253,10 @@ contains
                ((current_state%time - &
                (current_state%rad_last_time + socrates_opt%rad_int_time)) .ge. 0.0)
        endif
+       !iii) ensure that the diagnostics have non-trivial values
+       if (calculate_diagnostics) socrates_opt%l_rad_calc = .true.
     endif
+
 
     if (socrates_opt%l_rad_calc) then
        if (current_state%first_nonhalo_timestep_column) then

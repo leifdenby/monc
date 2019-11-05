@@ -88,7 +88,7 @@ w_bin_min=-25.0                    # lower bound of historgram [m/s]
 
 # Control configuration
 display_synopsis_frequency=20       # Status output write frequency [ts]
-termination_time=30000.             # Model run end time [s]
+termination_time=86400.             # Model run end time [s]
 dtm=1.0                             # Initial model time step [s]
 
 # IO server configuration
@@ -97,12 +97,12 @@ ioserver_configuration_file="io/io_cfg_files/paracon_level0_control.xml"
 moncs_per_io_server=8              # Set to 8 for MetOffice machines
 
 time_basis=.true.                 # logical for sampling and output intervals [ .false. (timestep, DEFAULT) | .true. (time) ]
-                                   #   - either unit is an integer (no fractional-second time intervals)
-sampling_frequency=300              # Sampling interval for time averaging [ s | ts ]
-3d_sampling_frequency=3600          # 3d Sampling interval for time averaging [ s | ts ]
-mm=900.                            # An output interval [ s | ts ]
-mm1=3600.                           # An output interval [ s | ts ]
-diag_write_freq=3600.               # Reinitialization interval for diagnostic files [s]
+                                  #   - either unit is an integer (no fractional-second time intervals)
+sampling_frequency=300            # Sampling interval for time averaging [ s | ts ]
+3d_sampling_frequency=3600        # 3d Sampling interval for time averaging [ s | ts ]
+mm=900.                           # An output interval [ s | ts ]
+mm1=3600.                         # An output interval [ s | ts ]
+diag_write_freq=3600.             # Reinitialization interval for diagnostic files [s]
 
 diagnostic_file="diagnostic_files/PECAN_diagnostic_data.nc" # diagnostic file location and prefix
 
@@ -111,7 +111,7 @@ diagnostic_file="diagnostic_files/PECAN_diagnostic_data.nc" # diagnostic file lo
 
 # Checkpoint configuration 
 checkpoint_frequency=0                             # Checkpoint file creation frequency [ts]
-checkpoint_file="checkpoint_files/PECAN_dump.nc"     # Checkpoint file location and prefix
+checkpoint_file="checkpoint_files/PECAN_dump.nc"   # Checkpoint file location and prefix
 
 # Internal walltime configuration
 check_walltime_frequency=100                  # Frequency to check wall clock against walltime_limit [ts]
@@ -294,7 +294,7 @@ i_cloud_representation  = 2
 l_360 = .false.           #  360 days in year as opposed to 365 (a UM thing
                          #  in the LEM, is this still required??)
 l_solar_fixed  = .false. # true equals fixed insolation using value in sol_fixed
-l_no_solar     = .true.
+l_no_solar     = .false.
 solar_fixed    = 1361.0  # prescribed insolation value
 sec_fixed      = 1.15470054   # prescribed 1/cos(solar_zenith_angle)
 latitude       = 38.5    # latitude for the location of radiation calc [match to coriolis!]
@@ -323,4 +323,4 @@ mphys_nq_g=1 # graupel mass
 l_fix_re       = .true.
 fixed_cloud_re = 10.0 # effective radius for cloud droplets 10 microns
 fixed_ice_re   = 30.0 # effective radius for ice 30 microns
-#----------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------

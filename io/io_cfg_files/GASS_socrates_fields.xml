@@ -41,7 +41,7 @@
 
 <group name="socrates_fields" namespace="SOCRATES">
 
-  <member name="tntrlw"/>
+<!--  <member name="tntrlw"/> -->
   <member name="rsut"/>
 
 </group>
