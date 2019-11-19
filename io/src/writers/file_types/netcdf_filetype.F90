@@ -66,13 +66,14 @@ contains
   !! @param file_writer_information The writer entry that is being written
   !! @param timestep The write timestep
   !! @param time The write time
-  subroutine define_netcdf_file(io_configuration, file_writer_information, timestep, time, time_points, termination_write)
+  subroutine define_netcdf_file(io_configuration, file_writer_information, timestep, time, time_points, termination_write, &
+                                time_basis)
     type(io_configuration_type), intent(inout) :: io_configuration
     type(writer_type), intent(inout), target :: file_writer_information
     type(map_type), intent(inout) :: time_points
     integer, intent(in) :: timestep
     real, intent(in) :: time
-    logical, intent(in) :: termination_write
+    logical, intent(in) :: termination_write, time_basis
     
     character(len=STRING_LENGTH) :: unique_filename
     type(netcdf_diagnostics_type), pointer :: ncdf_writer_state
@@ -108,7 +109,8 @@ contains
         call unlock_mpi()
         call write_out_global_attributes(io_configuration, ncdf_writer_state%ncid, file_writer_information, timestep, time)
         call define_dimensions(ncdf_writer_state, io_configuration%dimension_sizing)
-        call define_time_series_dimensions(ncdf_writer_state, file_writer_information, time, time_points, termination_write)
+        call define_time_series_dimensions(ncdf_writer_state, file_writer_information, time, time_points, termination_write, &
+                                           time_basis)
         call define_variables(io_configuration, ncdf_writer_state, file_writer_information)
         zn_var_id = define_coordinate_variable(ncdf_writer_state,"zn")  
         z_var_id  = define_coordinate_variable(ncdf_writer_state,"z")
@@ -611,13 +613,13 @@ contains
           call c_free(multi_monc_entries%monc_values)
           deallocate(multi_monc_entries)
         else
-          call log_log(LOG_WARN, "Omitted time entry of field '"//trim(field_to_write_information%field_name)//&
+          call log_log(LOG_WARN, "Omitted time entry of collective field '"//trim(field_to_write_information%field_name)//&
                "' as past dimension length at time "//conv_to_string(value_to_test))
         end if
       end if
     end do
     if (included_num-1 .ne. timeseries_diag%num_entries) then
-      call log_log(LOG_WARN, "Miss match of time entries for field '"//trim(field_to_write_information%field_name)//&
+      call log_log(LOG_WARN, "Miss match of time entries for collective field '"//trim(field_to_write_information%field_name)//&
            "', included entries="//trim(conv_to_string(included_num-1))//" but expected entries="//&
            trim(conv_to_string(timeseries_diag%num_entries)))
     end if
@@ -837,18 +839,18 @@ contains
   !! @param file_state The state of the NetCDF file
   !! @param file_writer_information Writer information
   !! @param time The model write time
-  subroutine define_time_series_dimensions(file_state, file_writer_information, time, time_points, termination_write)
+  subroutine define_time_series_dimensions(file_state, file_writer_information, time, time_points, termination_write, &
+                                           time_basis)
     type(netcdf_diagnostics_type), intent(inout) :: file_state
     type(writer_type), intent(inout) :: file_writer_information
     real, intent(in) :: time
     type(map_type), intent(inout) :: time_points
-    logical, intent(in) :: termination_write
+    logical, intent(in) :: termination_write, time_basis
 
     integer :: i
     character(len=STRING_LENGTH) :: dim_key
     type(netcdf_diagnostics_timeseries_type), pointer :: timeseries_diag
     class(*), pointer :: generic
-
 
     do i=1, size(file_writer_information%contents)
       if (file_writer_information%contents(i)%output_frequency .lt. 0.0) then
@@ -858,9 +860,7 @@ contains
              trim(conv_to_string(nint(file_writer_information%contents(i)%output_frequency)))
       end if
       if (.not. c_contains(file_state%timeseries_dimension, dim_key)) then
-
-        if (file_writer_information%time_basis .and. &
-            file_writer_information%contents(i)%previous_tracked_write_point .lt. 0.001) then
+        if (time_basis .and. file_writer_information%contents(i)%previous_tracked_write_point .lt. 0.001) then
           file_writer_information%contents(i)%previous_tracked_write_point = file_writer_information%previous_write_time
         end if
         allocate(timeseries_diag)
@@ -868,7 +868,7 @@ contains
         timeseries_diag%num_entries=get_number_timeseries_entries(time_points, &
              file_writer_information%contents(i)%previous_tracked_write_point, &
              file_writer_information%contents(i)%output_frequency, file_writer_information%contents(i)%timestep_frequency, &
-             termination_write, file_writer_information%time_basis, timeseries_diag%last_write_point)
+             termination_write, time_basis, timeseries_diag%last_write_point)
         call lock_mpi()
         call check_netcdf_status(nf90_def_dim(file_state%ncid, dim_key, timeseries_diag%num_entries, &
              timeseries_diag%netcdf_dim_id))

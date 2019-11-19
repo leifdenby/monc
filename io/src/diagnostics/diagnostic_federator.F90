@@ -27,6 +27,7 @@ module diagnostic_federator_mod
   use logging_mod, only : LOG_WARN, LOG_ERROR, log_log
   use operator_mod, only : perform_activity, initialise_operators, finalise_operators, get_operator_required_fields, &
        get_operator_perform_procedure, get_operator_auto_size
+  use optionsdatabase_mod, only : options_get_logical
   use io_server_client_mod, only : DOUBLE_DATA_TYPE, INTEGER_DATA_TYPE
   use writer_field_manager_mod, only : provide_field_to_writer_federator
   implicit none
@@ -79,6 +80,8 @@ module diagnostic_federator_mod
   integer, volatile :: timestep_entries_rwlock, all_diagnostics_per_timestep_rwlock, clean_progress_mutex, &
        previous_clean_point, previous_viewed_timestep, current_point
 
+  logical :: time_basis
+
  public initialise_diagnostic_federator, finalise_diagnostic_federator, check_diagnostic_federator_for_completion, &
       pass_fields_to_diagnostics_federator, determine_diagnostics_fields_available
 contains  
@@ -88,6 +91,8 @@ contains
   !! @returns The map of diagnostic fields to the frequency (in timesteps) of generation
   type(hashmap_type) function initialise_diagnostic_federator(io_configuration)
     type(io_configuration_type), intent(inout) :: io_configuration
+
+    time_basis = options_get_logical(io_configuration%options_database,"time_basis")
 
     call initialise_operators()
     call check_thread_status(forthread_rwlock_init(timestep_entries_rwlock, -1))
@@ -842,6 +847,7 @@ contains
 
     type(iterator_type) :: iterator
     integer :: i, matched_datadefn_index
+    logical :: expect_data
 
     allocate(create_timestep_entry)
     create_timestep_entry%timestep=timestep
@@ -850,16 +856,23 @@ contains
     create_timestep_entry%source=source
     create_timestep_entry%source_location=get_monc_location(io_configuration, source)
     create_timestep_entry%number_datas_outstanding=0
+
+    ! Count all data_definitions that have this frequency
+    ! i.e. create_timestep_entry%number_datas_outstanding = number of expected data packages at this timestep_entry
     do i=1, size(io_configuration%registered_moncs(create_timestep_entry%source_location)%definition_names)
       matched_datadefn_index=retrieve_data_definition(io_configuration, &
            io_configuration%registered_moncs(create_timestep_entry%source_location)%definition_names(i))
       if (matched_datadefn_index .gt. 0) then
-        if (io_configuration%data_definitions(matched_datadefn_index)%frequency .gt. 0) then
+        if (io_configuration%data_definitions(matched_datadefn_index)%frequency .gt. 0 ) then
+          if (time_basis) then
+            expect_data = (mod(nint(time), io_configuration%data_definitions(matched_datadefn_index)%frequency) == 0)
+          else
+            expect_data = (mod(timestep, io_configuration%data_definitions(matched_datadefn_index)%frequency) == 0)
+          end if
 
-!trj I don't think this condition is necessary, and it causes me trouble setting up the time_basis
-!          if (mod(timestep, io_configuration%data_definitions(matched_datadefn_index)%frequency) == 0) then
+          if (expect_data) then
             create_timestep_entry%number_datas_outstanding=create_timestep_entry%number_datas_outstanding+1
-!          end if
+          end if
         end if
       else
         call log_log(LOG_WARN, "IO server can not find data definition with name "&

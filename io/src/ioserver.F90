@@ -22,7 +22,6 @@ module io_server_mod
        c_remove, c_add_string, c_integer_at, c_free, c_get_iterator, c_has_next, c_next_mapentry
   use conversions_mod, only : conv_to_string
   use string_utils_mod, only : replace_character
-  use optionsdatabase_mod, only : options_get_string
   use io_server_client_mod, only : REGISTER_COMMAND, DEREGISTER_COMMAND, INTER_IO_COMMUNICATION, DATA_COMMAND_START, DATA_TAG, &
        LOCAL_SIZES_KEY, LOCAL_START_POINTS_KEY, LOCAL_END_POINTS_KEY, NUMBER_Q_INDICIES_KEY, SCALAR_FIELD_TYPE, &
        data_sizing_description_type, definition_description_type, field_description_type, build_mpi_type_data_sizing_description,&
@@ -34,7 +33,7 @@ module io_server_mod
        threadpool_deactivate, threadpool_is_idle
   use global_callback_inter_io_mod, only : perform_global_callback
   use logging_mod, only : LOG_ERROR, LOG_WARN, log_log, initialise_logging
-  use optionsdatabase_mod, only : options_get_logical, options_get_integer
+  use optionsdatabase_mod, only : options_get_logical, options_get_string
   use mpi, only : MPI_COMM_WORLD, MPI_STATUSES_IGNORE, MPI_BYTE
   use io_server_state_reader_mod, only : read_io_server_configuration
   implicit none
@@ -71,7 +70,7 @@ contains
     real(kind=DEFAULT_PRECISION), intent(in) :: reconfig_initial_time
     character(len=LONG_STRING_LENGTH), intent(in) :: io_configuration_file
 
-    integer :: command, source, my_rank, ierr, moncs_per_io
+    integer :: command, source, my_rank, ierr
     character, dimension(:), allocatable :: data_buffer, io_xml_configuration
     type(hashmap_type) :: diagnostic_generation_frequency
 
@@ -81,8 +80,6 @@ contains
       call read_io_server_configuration(options_get_string(options_database, "checkpoint"), &
            io_xml_configuration, io_communicator_arg)
     end if
-
-    moncs_per_io = options_get_integer(options_database,"moncs_per_io_server")
 
     if (.not. allocated(io_xml_configuration)) then
       io_xml_configuration=get_io_xml(io_configuration_file)
@@ -114,9 +111,9 @@ contains
     registree_field_descriptions=build_field_description_type_from_configuration(io_configuration)
     diagnostic_generation_frequency=initialise_diagnostic_federator(io_configuration)
     call initialise_writer_federator(io_configuration, diagnostic_generation_frequency, continuation_run, &
-                                     reconfig_initial_time, moncs_per_io)
+                                     reconfig_initial_time)
     call c_free(diagnostic_generation_frequency)
-    call initialise_writer_field_manager(io_configuration, continuation_run)
+    call initialise_writer_field_manager(io_configuration, continuation_run, reconfig_initial_time)
 
     mpi_type_data_sizing_description=build_mpi_type_data_sizing_description()
     mpi_type_definition_description=build_mpi_type_definition_description()
@@ -513,6 +510,7 @@ contains
           cond_long(n)=transfer(buffer(current_point+1:current_point+STRING_LENGTH), cd_field_name)
           current_point=current_point+STRING_LENGTH
         end do
+
         do n=1,ndiag
           diag_request(n)=transfer(buffer(current_point+1:current_point+STRING_LENGTH), cd_field_name)
           current_point=current_point+STRING_LENGTH

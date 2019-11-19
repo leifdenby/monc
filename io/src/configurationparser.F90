@@ -96,7 +96,7 @@ module configuration_parser_mod
      character(len=STRING_LENGTH) :: file_name, title
      integer :: number_of_contents, write_timestep_frequency
      real :: write_time_frequency
-     logical :: write_on_model_time, write_on_terminate, include_in_io_state_write, time_basis
+     logical :: write_on_model_time, write_on_terminate, include_in_io_state_write
      type(io_configuration_file_writer_facet_type), dimension(:), allocatable :: contents     
   end type io_configuration_file_writer_type
 
@@ -645,18 +645,6 @@ contains
            retrieve_string_value(attribute_values(field_index), STRING_DATA_TYPE)
     else
       call log_log(LOG_ERROR, "File writer requires a file name")
-    end if
-
-    field_index=get_field_index_from_name(attribute_names, "time_basis")
-    if (field_index .gt. 0) then
-      building_config%file_writers(current_building_file_writer)%time_basis=&
-           conv_to_logical(retrieve_string_value(attribute_values(field_index), BOOLEAN_DATA_TYPE))
-    else
-      building_config%file_writers(current_building_file_writer)%time_basis=.false.
-    end if
-    if (.not. building_config%file_writers(current_building_file_writer)%time_basis) then
-      call log_master_log(LOG_INFO, "File: "//trim(building_config%file_writers(current_building_file_writer)%file_name)// &
-                                    " will be written with a timestep basis.  Output is likely to be irregular in time.")
     end if
 
     field_index=get_field_index_from_name(attribute_names, "write_time_frequency")

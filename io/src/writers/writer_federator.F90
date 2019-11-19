@@ -32,6 +32,7 @@ module writer_federator_mod
   use io_server_state_writer_mod, only : is_io_server_state_writer_ready
   use io_server_state_reader_mod, only : reactivate_writer_federator_state
   use grids_mod, only : Z_INDEX, Y_INDEX, X_INDEX
+  use optionsdatabase_mod, only : options_get_logical, options_get_integer
   use mpi, only : MPI_INT, MPI_MAX
   use mpi_communication_mod, only : lock_mpi, unlock_mpi
   implicit none
@@ -47,7 +48,8 @@ module writer_federator_mod
   integer, volatile :: time_points_rwlock, collective_contiguous_initialisation_mutex, currently_writing_mutex
   logical, volatile :: currently_writing
 
-  integer :: trigger_count, moncs_per_io_local
+  integer :: trigger_count, moncs_per_io
+  logical :: time_basis
 
   public initialise_writer_federator, finalise_writer_federator, provide_ordered_field_to_writer_federator, &
        check_writer_for_trigger, issue_actual_write, is_field_used_by_writer_federator, inform_writer_federator_fields_present, &
@@ -57,17 +59,17 @@ contains
   !> Initialises the write federator and configures it based on the user configuration. Also initialises the time manipulations
   !! @param io_configuration The IO server configuration
   subroutine initialise_writer_federator(io_configuration, diagnostic_generation_frequency, continuation_run, &
-                                         reconfig_initial_time, moncs_per_io)
+                                         reconfig_initial_time)
     type(io_configuration_type), intent(inout) :: io_configuration
     type(hashmap_type), intent(inout) :: diagnostic_generation_frequency
     logical, intent(in) :: continuation_run
     real(kind=DEFAULT_PRECISION), intent(in) :: reconfig_initial_time
-    integer, intent(in) :: moncs_per_io
 
     integer :: i, j, number_contents, current_field_index
     type(hashset_type) :: writer_field_names, duplicate_field_names
     
-    moncs_per_io_local = moncs_per_io
+    moncs_per_io = options_get_integer(io_configuration%options_database,"moncs_per_io_server")
+    time_basis = options_get_logical(io_configuration%options_database,"time_basis")
 
     call check_thread_status(forthread_rwlock_init(time_points_rwlock, -1))
     call check_thread_status(forthread_mutex_init(collective_contiguous_initialisation_mutex, -1))
@@ -87,7 +89,6 @@ contains
       writer_entries(i)%filename=io_configuration%file_writers(i)%file_name
       writer_entries(i)%title=io_configuration%file_writers(i)%title
       writer_entries(i)%write_on_terminate=io_configuration%file_writers(i)%write_on_terminate
-      writer_entries(i)%time_basis=io_configuration%file_writers(i)%time_basis
       writer_entries(i)%include_in_io_state_write=io_configuration%file_writers(i)%include_in_io_state_write
       call check_thread_status(forthread_mutex_init(writer_entries(i)%trigger_and_write_mutex, -1))
       call check_thread_status(forthread_mutex_init(writer_entries(i)%num_fields_to_write_mutex, -1))
@@ -360,7 +361,7 @@ contains
               call log_log(LOG_DEBUG, "[WRITE FED VALUE STORE] Storing value for field "//trim(field_name)//" ts="//&
                    trim(conv_to_string(timestep))// " t="//trim(conv_to_string(time)))
             end if
-            call check_thread_status(forthread_mutex_lock(writer_entries(writer_index)%contents(contents_index)%values_mutex))           
+            call check_thread_status(forthread_mutex_lock(writer_entries(writer_index)%contents(contents_index)%values_mutex))
             call c_put_generic(writer_entries(writer_index)%contents(contents_index)%values_to_write, conv_to_string(time), &
                  generic, .false.)
             call check_thread_status(forthread_mutex_unlock(writer_entries(writer_index)%contents(contents_index)%values_mutex))
@@ -481,12 +482,11 @@ contains
             if (writer_entries(writer_index)%contents(contents_index)%collective_write .and. source .gt. -1) then
               result_values=writer_entries(writer_index)%contents(contents_index)%time_manipulation(field_values, &
                    writer_entries(writer_index)%contents(contents_index)%output_frequency, &
-                   trim(field_name)//"#"//conv_to_string(source), timestep, time, &
-                   writer_entries(writer_index)%time_basis)
+                   trim(field_name)//"#"//conv_to_string(source), timestep, time, time_basis)
             else
               result_values=writer_entries(writer_index)%contents(contents_index)%time_manipulation(field_values, &
                    writer_entries(writer_index)%contents(contents_index)%output_frequency, &
-                   field_name, timestep, time, writer_entries(writer_index)%time_basis)
+                   field_name, timestep, time, time_basis)
             end if
             generic=>result_values
             call c_put_generic(typed_result_values, conv_to_string(&
@@ -550,7 +550,7 @@ contains
     call c_put_generic(stored_monc_values%monc_values, conv_to_string(source), generic, .false.)
   end subroutine write_collective_write_value  
 
-  !> For a specific field wil determine and handle any outstanding fields writes until an outstanding write
+  !> For a specific field, will determine and handle any outstanding field writes until an outstanding write
   !! can not be performed or the outstanding list is empty
   !! @param specific_field The specific field that we are concerned with
   subroutine determine_if_outstanding_field_can_be_written(io_configuration, writer_entry, specific_field)
@@ -684,7 +684,7 @@ contains
 
       do i=size(writer_entries), 1, -1 ! reverse to put checkpoint last (could be smarter about this)
         call check_writer_trigger(io_configuration, i, timestep, real(time, kind=4), terminated, &
-                                  mod(trigger_count,moncs_per_io_local) .eq. 0 .and. trigger_count .gt. 0)
+                                  mod(trigger_count,moncs_per_io) .eq. 0 .and. trigger_count .gt. 0)
       end do
     end if
   end subroutine check_writer_for_trigger
@@ -775,7 +775,8 @@ contains
     writer_entry%write_time=time
     writer_entry%write_timestep=timestep
     applicable_time_points=extract_applicable_time_points(writer_entry%previous_write_time, time)    
-    call define_netcdf_file(io_configuration, writer_entry, timestep, time, applicable_time_points, terminated_write)
+    call define_netcdf_file(io_configuration, writer_entry, timestep, time, applicable_time_points, terminated_write, &
+                            time_basis)
     call c_free(applicable_time_points)
     total_outstanding=0
     total_flds=0
@@ -963,7 +964,7 @@ contains
     call close_netcdf_file(io_configuration, field_name, timestep)
 
     done_chain_run=.false.
-    do i=1, size(writer_entries)
+    do i=size(writer_entries),1,-1
       if (writer_entries(i)%filename .ne. writer_entry%filename) then
         done_chain_run=check_for_and_issue_chain_write(io_configuration, writer_entries(i))
         if (done_chain_run) exit
@@ -1401,17 +1402,17 @@ contains
       end do      
     end if    
 
-    if ( writer_entries(writer_entry_index)%time_basis .and. &
-         mod( nint(writer_entries(writer_entry_index)%contents(my_facet_index)%output_frequency), &
-              writer_entries(writer_entry_index)%contents(my_facet_index)%timestep_frequency) .ne. 0 ) then
-      call log_log(LOG_ERROR, "The output interval for '"//trim(field_name)//  &
-                              "' must be a factor of its sampling interval when using time_basis=.true.")
-    end if
-    if ( writer_entries(writer_entry_index)%time_basis .and. &
-         mod( writer_entries(writer_entry_index)%write_timestep_frequency, &
-              nint(writer_entries(writer_entry_index)%contents(my_facet_index)%output_frequency)) .ne. 0 ) then
-      call log_log(LOG_ERROR, "The file writing interval for the file containing '"//trim(field_name)//  &
-                              "' must be a factor of its output interval when using time_basis=.true.")
+    if (writer_entries(writer_entry_index)%contents(my_facet_index)%output_frequency .gt. 0) then
+      if ( time_basis .and. mod( nint(writer_entries(writer_entry_index)%contents(my_facet_index)%output_frequency), &
+                writer_entries(writer_entry_index)%contents(my_facet_index)%timestep_frequency) .ne. 0 ) then
+        call log_log(LOG_ERROR, "The output interval for '"//trim(field_name)//  &
+                                "' must be a factor of its sampling interval when using time_basis=.true.")
+      end if
+      if ( time_basis .and. mod( nint(writer_entries(writer_entry_index)%write_time_frequency), &
+                nint(writer_entries(writer_entry_index)%contents(my_facet_index)%output_frequency)) .ne. 0 ) then
+        call log_log(LOG_ERROR, "The file writing interval for the file containing '"//trim(field_name)//  &
+                                "' must be a factor of its output interval when using time_basis=.true.")
+      end if
     end if
 
     call check_thread_status(forthread_mutex_init(writer_entries(writer_entry_index)%contents(my_facet_index)%values_mutex, -1))

@@ -11,7 +11,7 @@ module iobridge_mod
   use optionsdatabase_mod, only : options_size, options_get_logical, options_get_integer, options_get_string
   use prognostics_mod, only : prognostic_field_type
   use datadefn_mod, only : DEFAULT_PRECISION, SINGLE_PRECISION, DOUBLE_PRECISION, STRING_LENGTH
-  use logging_mod, only : LOG_ERROR, LOG_WARN, log_log, log_master_log, LOG_INFO
+  use logging_mod, only : LOG_ERROR, LOG_WARN, log_log, log_master_log
   use q_indices_mod, only : q_metadata_type, get_indices_descriptor
   use registry_mod, only : get_all_component_published_fields, get_component_field_value, &
        get_component_field_information, is_component_enabled

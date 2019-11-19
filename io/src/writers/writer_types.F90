@@ -81,7 +81,7 @@ module writer_types_mod
      integer :: trigger_and_write_mutex, write_timestep, previous_write_timestep, num_fields_to_write, &
           num_fields_to_write_mutex, pending_writes_mutex, write_timestep_frequency, latest_pending_write_timestep
      real :: write_time_frequency, previous_write_time, latest_pending_write_time, write_time, defined_write_time
-     logical :: write_on_model_time, contains_io_status_dump, write_on_terminate, include_in_io_state_write, time_basis
+     logical :: write_on_model_time, contains_io_status_dump, write_on_terminate, include_in_io_state_write
      type(queue_type) :: pending_writes
   end type writer_type
 
