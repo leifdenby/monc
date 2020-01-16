@@ -320,7 +320,7 @@ contains
     else
       generic=>generate_value_container(field_name, field_namespace, field_values, timestep, time, frequency, source)
       if (time_basis) then
-        call c_put_generic(field_ordering%timestep_to_value, conv_to_string(time), generic, .false.)
+        call c_put_generic(field_ordering%timestep_to_value, conv_to_string(nint(time)), generic, .false.)
       else
         call c_put_generic(field_ordering%timestep_to_value, conv_to_string(timestep), generic, .false.)
       end if
