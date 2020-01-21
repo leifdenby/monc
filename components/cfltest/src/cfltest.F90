@@ -237,7 +237,7 @@ contains
 
     ! Handle timestep adjustment for time_basis=.true.
     ts_to_next_cfl = current_state%cfl_frequency - mod(current_state%timestep, current_state%cfl_frequency)
-    projected_time = current_state%time + current_state%dtm + (current_state%dtm_new * ts_to_next_cfl)
+    projected_time = current_state%time + current_state%dtm + (current_state%dtm_new * ts_to_next_cfl) + dtmmin
     next_sample_time = min(current_state%next_3d_sample_time, current_state%next_sample_time)
     if ( next_sample_time .gt. 0 .and. projected_time .ge. next_sample_time ) then
       sample_nts = max(1, ceiling( (next_sample_time - (current_state%time + current_state%dtm) ) / current_state%dtm_new ) )
