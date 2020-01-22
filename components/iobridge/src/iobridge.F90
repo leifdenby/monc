@@ -120,7 +120,7 @@ contains
       ! If we are restarting from a NON-normal_step, then the sample timesteps need to be set now.
       if (.not. current_state%normal_step) then
         next_sample_time = min(current_state%next_3d_sample_time, current_state%next_sample_time)
-        sample_nts = nint((next_sample_time - current_state%time) / current_state%dtm) - 1
+        sample_nts = nint((next_sample_time - current_state%time) / current_state%dtm_new) - 1
         if (next_sample_time .eq. current_state%next_3d_sample_time) then
           current_state%sample_timestep_3d = current_state%timestep + sample_nts
         end if
