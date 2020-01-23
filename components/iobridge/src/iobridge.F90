@@ -110,12 +110,12 @@ contains
       sampling_interval_time_3d = options_get_integer(current_state%options_database, "3d_sampling_frequency")
       sampling_interval_time    = options_get_integer(current_state%options_database, "sampling_frequency")  
       if ( sampling_interval_time_3d .gt. 0 ) then 
-        current_state%next_3d_sample_time = ((nint(current_state%time) / sampling_interval_time_3d) + 1) &
-                                             * sampling_interval_time_3d + epsilon(current_state%time)
+        current_state%next_3d_sample_time = ((int(current_state%time) / sampling_interval_time_3d) + 1) &
+                                             * sampling_interval_time_3d
       end if
       if ( sampling_interval_time .gt. 0 ) then
-        current_state%next_sample_time    = ((nint(current_state%time) / sampling_interval_time)    + 1) &
-                                             * sampling_interval_time + epsilon(current_state%time)
+        current_state%next_sample_time    = ((int(current_state%time) / sampling_interval_time)    + 1) &
+                                             * sampling_interval_time
       end if 
       ! If we are restarting from a NON-normal_step, then the sample timesteps need to be set now.
       if (.not. current_state%normal_step) then
