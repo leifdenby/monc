@@ -8,11 +8,10 @@ module iobridge_mod
   use conversions_mod, only : conv_to_string
   use state_mod, only : model_state_type
   use grids_mod, only : X_INDEX, Y_INDEX, Z_INDEX, local_grid_type
-  use optionsdatabase_mod, only : options_size, options_get_logical, options_get_integer, options_get_string
+  use optionsdatabase_mod, only : options_size, options_get_logical, options_get_integer, options_get_string, options_get_real
   use prognostics_mod, only : prognostic_field_type
   use datadefn_mod, only : DEFAULT_PRECISION, SINGLE_PRECISION, DOUBLE_PRECISION, STRING_LENGTH
   use logging_mod, only : LOG_ERROR, LOG_WARN, log_log, log_master_log
-  use q_indices_mod, only : q_metadata_type, get_indices_descriptor
   use registry_mod, only : get_all_component_published_fields, get_component_field_value, &
        get_component_field_information, is_component_enabled
   use io_server_client_mod, only : COMMAND_TAG, DATA_TAG, REGISTER_COMMAND, DEREGISTER_COMMAND, DATA_COMMAND_START, &
@@ -79,6 +78,7 @@ contains
 
     integer :: mpi_type_data_sizing_description, mpi_type_definition_description, mpi_type_field_description, ierr
     integer :: sample_nts, next_sample_time
+    real(kind=DEFAULT_PRECISION) :: dtmmin
 
     if (.not. options_get_logical(current_state%options_database, "enable_io_server")) then
       io_server_enabled=.false.
@@ -109,12 +109,14 @@ contains
     if (current_state%time_basis) then 
       sampling_interval_time_3d = options_get_integer(current_state%options_database, "3d_sampling_frequency")
       sampling_interval_time    = options_get_integer(current_state%options_database, "sampling_frequency")  
+      dtmmin = options_get_real(current_state%options_database, "cfl_dtmmin")
+
       if ( sampling_interval_time_3d .gt. 0 ) then 
-        current_state%next_3d_sample_time = ((int(current_state%time) / sampling_interval_time_3d) + 1) &
+        current_state%next_3d_sample_time = ((int(current_state%time + dtmmin) / sampling_interval_time_3d) + 1) &
                                              * sampling_interval_time_3d
       end if
       if ( sampling_interval_time .gt. 0 ) then
-        current_state%next_sample_time    = ((int(current_state%time) / sampling_interval_time)    + 1) &
+        current_state%next_sample_time    = ((int(current_state%time + dtmmin) / sampling_interval_time)    + 1) &
                                              * sampling_interval_time
       end if 
       ! If we are restarting from a NON-normal_step, then the sample timesteps need to be set now.
@@ -202,7 +204,6 @@ contains
       end do
 
     end if ! basis check
-
 
   end subroutine timestep_callback
 
@@ -654,7 +655,7 @@ contains
 
   !> Packages the local MONC decomposition information into descriptions for communication
   !! @param current_state The current model state
-  !! @param data_description THe data description to pack into
+  !! @param data_description The data description to pack into
   subroutine package_local_monc_decomposition_into_descriptions(current_state, data_description)
     type(model_state_type), target, intent(inout) :: current_state
     type(data_sizing_description_type), dimension(:), intent(inout) :: data_description
