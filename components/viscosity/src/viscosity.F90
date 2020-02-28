@@ -247,8 +247,8 @@ contains
          tau11, tau22, tau22_yp1, tau33, tau23_ym1, tau11p1, tau13, tau13m1, tau23
     logical :: calculate_diagnostics
 
-    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
-                             (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
+    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.     &
+                     (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
 
     local_y=current_state%column_local_y
     local_x=current_state%column_local_x

@@ -311,9 +311,9 @@ contains
     integer :: current_x_index, current_y_index, target_x_index, target_y_index
     logical :: calculate_diagnostics
 
-    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
-                             (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0)) &
-                            .and. .not. current_state%halo_column
+    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.     &
+                     (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0)) &
+                     .and. .not. current_state%halo_column
 
     current_x_index=current_state%column_local_x
     current_y_index=current_state%column_local_y
@@ -365,7 +365,8 @@ contains
 
     if (current_state%halo_column .and. current_state%timestep <3) return
 
-    if (calculate_diagnostics) call save_precomponent_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
+    if (calculate_diagnostics) &
+        call save_precomponent_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
     
     do k=current_state%global_grid%configuration%vertical%kdmpmin,current_state%local_grid%size(Z_INDEX)
 #ifdef U_ACTIVE
@@ -406,7 +407,8 @@ contains
     end do
 #endif
 
-    if (calculate_diagnostics) call compute_component_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
+    if (calculate_diagnostics) &
+        call compute_component_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
 
   end subroutine timestep_callback
 

@@ -317,9 +317,9 @@ contains
     integer :: local_y, local_x, target_x_index, target_y_index
     logical :: calculate_diagnostics
 
-    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
-                             (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0)) &
-                            .and. .not. current_state%halo_column
+    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.     &
+                     (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0)) &
+                     .and. .not. current_state%halo_column
 
 
     local_y=current_state%column_local_y

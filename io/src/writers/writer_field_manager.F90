@@ -441,7 +441,8 @@ contains
       if (.not. associated(get_or_add_field_ordering)) then
         allocate(get_or_add_field_ordering)
         get_or_add_field_ordering%last_timestep_access=0
-        get_or_add_field_ordering%last_time_access = nint(model_initial_time - mod(model_initial_time,real(frequency)))
+        get_or_add_field_ordering%last_time_access = nint(model_initial_time - &
+                                                     mod(real(model_initial_time),real(frequency)))
         get_or_add_field_ordering%frequency=frequency
         call check_thread_status(forthread_mutex_init(get_or_add_field_ordering%access_mutex, -1))
         generic=>get_or_add_field_ordering

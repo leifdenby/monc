@@ -215,8 +215,8 @@ contains
     logical :: use_Ri_for_buoyant_prod=.TRUE.
     logical :: calculate_diagnostics
 
-    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
-                             (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
+    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.     &
+                     (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
 
     C_virtual = (ratio_mol_wts-1.0_DEFAULT_PRECISION)
     jcol=current_state%column_local_y

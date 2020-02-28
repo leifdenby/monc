@@ -478,7 +478,7 @@ contains
     real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: f_force_pl_u      ! Forcing values for u variable
     real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: z_force_pl_u      ! Forcing height values for u variable
     real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: f_force_pl_v      ! Forcing values for v variable
-    real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: z_force_pl_v      ! Forcing height values for v variabl
+    real(kind=DEFAULT_PRECISION), dimension(:), allocatable :: z_force_pl_v      ! Forcing height values for v variable
 
     ! Read from netcdf file if used - always 2D
     real(kind=DEFAULT_PRECISION), dimension(:,:), allocatable :: f_subs_2d  ! subsidence node for q variables
@@ -613,7 +613,7 @@ contains
     if (l_constant_forcing_theta)then
       constant_forcing_type_theta=options_get_integer(current_state%options_database, "constant_forcing_type_theta")
       forcing_timescale_theta=options_get_real(current_state%options_database, "forcing_timescale_theta")
-      l_constant_forcing_theta_z2pressure=options_get_logical(current_state%options_database, "l_constant_forcing_theta_z2pressure")
+      l_constant_forcing_theta_z2pressure=options_get_logical(current_state%options_database,"l_constant_forcing_theta_z2pressure")
 
       allocate(z_force_pl_theta(options_get_array_size(current_state%options_database, "z_force_pl_theta")), &
            f_force_pl_theta(options_get_array_size(current_state%options_database, "f_force_pl_theta")))
@@ -892,8 +892,8 @@ contains
     logical :: calculate_diagnostics
     real(kind=DEFAULT_PRECISION), dimension(current_state%local_grid%size(Z_INDEX)) :: temp_prof
 
-    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
-                             (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
+    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.      &
+                      (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
 
     current_x_index=current_state%column_local_x
     current_y_index=current_state%column_local_y
@@ -943,7 +943,8 @@ contains
 
     if (current_state%halo_column .or. current_state%timestep<3) return
 
-    if (calculate_diagnostics) call save_precomponent_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
+    if (calculate_diagnostics) &
+        call save_precomponent_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
 
     ! AH: perform subsidence calculation but first determine if time varying or constant
     !     If timevarying then work out the profile of subsidence for the given time and 
@@ -1002,16 +1003,17 @@ contains
     end if
     if (l_subs_pl_q) call apply_subsidence_to_q_fields(current_state)
 
-    if (l_constant_forcing_theta)call apply_time_independent_forcing_to_theta(current_state)                                                         
+    if (l_constant_forcing_theta) call apply_time_independent_forcing_to_theta(current_state)                                                         
 #ifdef U_ACTIVE
-    if (l_constant_forcing_u)call apply_time_independent_forcing_to_u(current_state)
+    if (l_constant_forcing_u) call apply_time_independent_forcing_to_u(current_state)
 #endif                                                       
 #ifdef V_ACTIVE
-    if (l_constant_forcing_v)call apply_time_independent_forcing_to_v(current_state)
+    if (l_constant_forcing_v) call apply_time_independent_forcing_to_v(current_state)
 #endif
-    if (l_constant_forcing_q)call apply_time_independent_forcing_to_q(current_state)
+    if (l_constant_forcing_q) call apply_time_independent_forcing_to_q(current_state)
 
-    if (calculate_diagnostics) call compute_component_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
+    if (calculate_diagnostics) &
+        call compute_component_tendencies(current_state, current_x_index, current_y_index, target_x_index, target_y_index)
 
   end subroutine timestep_callback
 

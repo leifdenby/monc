@@ -58,8 +58,8 @@ contains
     real(kind=DEFAULT_PRECISION) :: temp
     logical :: calculate_diagnostics
 
-    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.             &
-                             (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
+    calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.     &
+                     (.not. current_state%time_basis .and. mod(current_state%timestep, diagnostic_generation_frequency) == 0))
 
     !> Decide if conditions are appropriate to proceed with calculations
     if (.not. calculate_diagnostics) return

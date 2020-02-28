@@ -1,10 +1,10 @@
 #!/bin/bash --login
-#PBS -N merge_dev
+#PBS -N wiwwiwi
 #PBS -l select=1
-#PBS -l walltime=00:10:00
+#PBS -l walltime=00:20:00
 #PBS -j oe
 #PBS -P nexcs-n06
-#PBS -q development
+#PBS -q nexcs
 
 
 ##############################################################

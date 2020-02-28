@@ -462,7 +462,7 @@ contains
     endif
        
     if (allocated(wke_tot)) then
-       do k=1, current_state%local_grid%size(Z_INDEX)
+       do k=1, current_state%local_grid%size(Z_INDEX)-1
           uprime_w_local =  &
                0.25_DEFAULT_PRECISION * ( current_state%u%data(k,jcol,icol)   + &
                current_state%u%data(k,jcol,icol-1) + &
