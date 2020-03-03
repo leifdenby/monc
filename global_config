@@ -166,9 +166,30 @@ max_change_buoyancy_flux=12.0
 use_surface_boundary_conditions=.false.
 type_of_surface_boundary_conditions=0
 use_time_varying_surface_values=.false.
-use_time_varying_subsidence=.false.
 surface_conditions_file=None
 max_change_buoyancy_flux=12.0
+
+# Time-varying forcing --------------------------------------------------------------------------------------------
+# enter files as the base directory-relative path to file
+# specify the vertical coordinate of the forcing as 'height' [m] or 'pressure' [Pa]
+#  - expecting NetCDF variable names to be "wsubs", "theta_tendency", or "q_tendency" for
+#    subsidence, theta, and water vapour forcing time-height profiles, respectively.
+#  - expecting temporal coordinate variable/dimension to be called "time".
+#  - expecting theta_tendency as K/s
+#    allowed to be temperature (instead of theta), but requires convert_input_theta_from_temperature=.true.
+#  - expecting q_tendecy as kg/kg/s
+use_time_varying_subsidence=.false.
+varying_subsidence_file=               # .nc file, DEFAULT: unset
+varying_subsidence_coordinate=         # 'height' [m] or 'pressure' [Pa]
+
+use_time_varying_theta=.false.
+varying_theta_file=                    # .nc file, DEFAULT: unset
+varying_theta_coordinate=              # 'height' [m] or 'pressure' [Pa]
+
+use_time_varying_q=.false.
+varying_q_file=                        # .nc file, DEFAULT: unset
+varying_q_coordinate=                  # 'height' [m] or 'pressure' [Pa]
+
 
 # Simplesetup options
 x_size=1
