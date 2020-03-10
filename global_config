@@ -175,8 +175,12 @@ max_change_buoyancy_flux=12.0
 #  - expecting NetCDF variable names to be "wsubs", "theta_tendency", or "q_tendency" for
 #    subsidence, theta, and water vapour forcing time-height profiles, respectively.
 #  - expecting temporal coordinate variable/dimension to be called "time".
+#  - expecting wsubs as m/s
+#     - This is a subsidence velocity only, not divergence rate.
+#     - When using use_time_varying_subsidence=.true., subsidence_input_type is ignored.
 #  - expecting theta_tendency as K/s
-#    allowed to be temperature (instead of theta), but requires convert_input_theta_from_temperature=.true.
+#     - Allowed to be temperature (instead of theta), but requires convert_input_theta_from_temperature=.true.
+#     - convert_input_theta_from_temperature will also apply to any additional constant forcing.
 #  - expecting q_tendecy as kg/kg/s
 use_time_varying_subsidence=.false.
 varying_subsidence_file=               # .nc file, DEFAULT: unset
