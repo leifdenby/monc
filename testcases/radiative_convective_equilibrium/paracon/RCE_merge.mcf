@@ -95,13 +95,13 @@ dtm=1.0                             # Initial model time step [s]
 ioserver_configuration_file="io/io_cfg_files/paracon_level0_control.xml"
 moncs_per_io_server=8              # Set to 8 for MetOffice machines
 
-time_basis=.true.                 # logical for sampling and output intervals [ .false. (timestep, DEFAULT) | .true. (time) ]
+time_basis=.true.                  # logical for sampling and output intervals [ .false. (timestep, DEFAULT) | .true. (time) ]
                                    #   - either unit is an integer (no fractional-second time intervals)
-sampling_frequency=300              # Sampling interval for time averaging [ s | ts ]
-3d_sampling_frequency=3600          # 3d Sampling interval for time averaging [ s | ts ]
+sampling_frequency=300             # Sampling interval for time averaging [ s | ts ]
+3d_sampling_frequency=3600         # 3d Sampling interval for time averaging [ s | ts ]
 mm=900.                            # An output interval [ s | ts ]
-mm1=3600.                           # An output interval [ s | ts ]
-diag_write_freq=3600.               # Reinitialization interval for diagnostic files [s]
+mm1=3600.                          # An output interval [ s | ts ]
+diag_write_freq=3600.              # Reinitialization interval for diagnostic files [s]
 
 diagnostic_file="diagnostic_files/diagnostic_data.nc" # diagnostic file location and prefix
 

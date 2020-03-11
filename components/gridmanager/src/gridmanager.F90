@@ -910,9 +910,6 @@ contains
             qsat=qsaturation(TdegK(k), current_state%global_grid%configuration%vertical%prefn(k)/100.)    
             current_state%global_grid%configuration%vertical%q_init(k, iq) = & 
                  (current_state%global_grid%configuration%vertical%rh_init(k)/100.0)*qsat
-            !print *,  current_state%global_grid%configuration%vertical%rh_init(k), &
-            !     current_state%global_grid%configuration%vertical%q_init(k, iq), &
-            !     TdegK(k)
          enddo
          if (.not. current_state%continuation_run) then
             do i=current_state%local_grid%local_domain_start_index(X_INDEX), &
