@@ -152,21 +152,12 @@ contains
 
     allocate(zvals(nz_force),z(nz_monc),vals(nz_force,nt_force))
 
-zvals=zvals_in
+    zvals=zvals_in
 
     if ( zvals(1) .GT. zvals(nz_force) ) then   ! pressure
-!       call log_master_log(LOG_ERROR, "Input forcing uses pressure, this has not been coded"// &
-!            " - please modify your forcing file to using height coordinates or modify the" // &
-!            " interpolation routine in model_core to work with pressure coords - STOP") 
-!print *, 'zvals1:', zvals_in
       zvals=log10(zvals_in(nz_force:1:-1))
-!print *, 'zvals2:', zvals
-!print *, 'z1:', z_out
       z=log10(z_out(nz_monc:1:-1))
-!print *, 'z2:', z
-!print *, 'vals preflip:', vals_in(:,1)
       vals=vals_in(nz_force:1:-1,:)
-!print *, 'vals flip',vals(:,1)
     else
       zvals=zvals_in
       z=z_out
@@ -182,7 +173,6 @@ zvals=zvals_in
                    field(k_monc,nn) = vals(k_force,nn) +                  &           
                         (  vals(k_force+1,nn) - vals(k_force,nn) )        &          
                         * scale_tmp                           
-!if (nn .eq. 1 ) print *, 'loop1', k_monc, k_force, z(k_monc), zvals(k_force), vals(k_force+1,nn), vals(k_force,nn), scale_tmp, field(k_monc,nn)
                 enddo
              endif
           enddo
@@ -194,14 +184,12 @@ zvals=zvals_in
           if ( z(k_monc) >= zvals(nz_force) ) then                    
              scale_tmp = ( z(k_monc) - zvals(nz_force) )                   &                
                   / ( zvals(nz_force) - zvals(nz_force-1) )           
-!print *, 'loop2a', k_monc, z(k_monc), zvals(nt_force), zvals(nz_force), scale_tmp 
              do nn=1,nt_force                                            
                 field(k_monc,nn) = vals(nz_force,nn) +                  &           
                      (  vals(nz_force,nn) - vals(nz_force-1,nn) )        &          
                      * scale_tmp   
              enddo
           elseif ( z(k_monc) < zvals(1) )THEN                     
-!print *, 'loop2b', k_monc, z(k_monc), zvals(1), scale_tmp
              scale_tmp = ( z(k_monc) - zvals(1) )                        &                      
                   / ( zvals(1) - zvals(2) )                       
              do nn=1,nt_force  
@@ -216,9 +204,13 @@ zvals=zvals_in
       field=field(nz_monc:1:-1,:)
     endif
 
-
   end subroutine piecewise_linear_2d
 
+
+
+  ! "extrapolate" is a bad name for this option, as it is only used for interpolation so that it is either
+  ! linear or constant (not actually interpolation)
+  ! No extrapolation is done when z is beyond bounds of zvals, it's just constantly replicated. Oy.
   subroutine interpolate_point_linear_2d(zvals, vals, z, f, extrapolate)
 
     ! 2-d because the "vals" array is 2d, probably height and time

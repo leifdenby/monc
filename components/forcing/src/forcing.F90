@@ -1612,6 +1612,8 @@ contains
 
 
     ! interpolate forcing levels onto the MONC vertical grid (vert_grid), for all forcing times
+    !   Linear gradient extrapolation beyond the input height bounds is implicitly performed.
+    !     This behaviour is different from that in piecewise_linear_1d, which does not extrapolate.
     call piecewise_linear_2d(vert_coords, tvdata%forcing_times, input_forcing, &  ! input coordinates and data
                              vert_grid, tvdata%forcing_values)                    ! output vertical coords and data
     ! clean up
