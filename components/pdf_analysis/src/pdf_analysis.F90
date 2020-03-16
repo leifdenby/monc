@@ -109,9 +109,11 @@ contains
     ! So in all cases, if this component is enabled, we make certain these are allocated.
     if (.not. allocated(current_state%global_grid%configuration%vertical%w_dwn) ) then
       allocate(current_state%global_grid%configuration%vertical%w_dwn(current_state%local_grid%size(Z_INDEX)))
+      current_state%global_grid%configuration%vertical%w_dwn(:) = 0.0_DEFAULT_PRECISION
     end if
     if (.not. allocated(current_state%global_grid%configuration%vertical%w_up) ) then
       allocate(current_state%global_grid%configuration%vertical%w_up(current_state%local_grid%size(Z_INDEX)))
+      current_state%global_grid%configuration%vertical%w_up(:) = 0.0_DEFAULT_PRECISION
     end if
 
     ! Allocate w histogram profile data

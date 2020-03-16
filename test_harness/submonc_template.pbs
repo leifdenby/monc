@@ -1,9 +1,9 @@
 #!/bin/bash --login
-#PBS -N MONC
+#PBS -N add_jobname
 #PBS -l select=1
 #PBS -l walltime=01:00:00
 #PBS -j oe
-#PBS -P asci
+#PBS -P nexcs-n06
 #PBS -q normal
 
 # Make sure any symbolic links are resolved to absolute path 

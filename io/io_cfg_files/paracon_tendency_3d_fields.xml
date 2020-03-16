@@ -4,9 +4,14 @@
 
    2. 3d CASIM tendencies have not been implemented.
 
-   3. Terms are separated by MONC source component with line breaks.
+   3. 3d SOCRATES (radiative) theta tendencies are found in paracon_socrates_fields.xml.
+         <member name="shortwave_heating_rate"/>
+         <member name="longwave_heating_rate"/>
+         <member name="total_radiative_heating_rate"/>
 
-   4. DO NOT expect all of these field to be written.  They WILL NOT.  In particular, advection and
+   4. Terms are separated by MONC source component with line breaks.
+
+   5. DO NOT expect all of these field to be written.  They WILL NOT.  In particular, advection and
       microphysics routine choices will switch on/off specific componenets.  Also, it may be the case
       that not all water species are specified in a given configuration.
 
@@ -80,6 +85,13 @@
 
   <field name="tend_u_coriolis_3d_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
   <field name="tend_v_coriolis_3d_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
+
+  <field name="tend_tabs_socrates_3d_longwave_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
+  <field name="tend_tabs_socrates_3d_shortwave_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
+  <field name="tend_tabs_socrates_3d_total_radiative_heating_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
+
+  <field name="tend_th_lwrad_exponential_3d_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
+  <field name="tend_tabs_lwrad_exponential_3d_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
 
   <field name="tend_th_simplecloud_3d_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
   <field name="tend_qv_simplecloud_3d_local" type="array" data_type="double" size="zn,y,x" collective=true optional=true/>
@@ -173,6 +185,13 @@
 
   <member name="tend_u_coriolis_3d_local"/>
   <member name="tend_v_coriolis_3d_local"/>
+
+  <member name="tend_tabs_socrates_3d_longwave_local"/>
+  <member name="tend_tabs_socrates_3d_shortwave_local"/>
+  <member name="tend_tabs_socrates_3d_total_radiative_heating_local"/>
+
+  <member name="tend_th_lwrad_exponential_3d_local"/>
+  <member name="tend_tabs_lwrad_exponential_3d_local"/>
 
   <member name="tend_th_simplecloud_3d_local"/>
   <member name="tend_qv_simplecloud_3d_local"/>

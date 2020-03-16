@@ -3,16 +3,16 @@
 module configuration_parser_mod
   use datadefn_mod, only : DEFAULT_PRECISION, STRING_LENGTH
   use sax_xml_parser_mod, only : xml_parse
-  use conversions_mod, only : conv_to_string, conv_to_integer, conv_to_real, conv_to_integer, conv_to_logical
+  use conversions_mod, only : conv_to_string, conv_to_integer, conv_to_real, conv_to_uppercase
   use collections_mod, only : hashmap_type, hashset_type, map_type, list_type, mapentry_type, c_get_generic, c_get_integer, &
        c_free, c_size, c_put_integer, c_put_string, c_add_generic, c_add_string
-  use conversions_mod, only : conv_to_integer
-  use logging_mod, only : LOG_WARN, LOG_ERROR, LOG_INFO, log_log, log_master_log
+  use logging_mod, only : LOG_WARN, LOG_INFO, LOG_ERROR, log_log, log_master_log, log_master_newline
   use optionsdatabase_mod, only : options_has_key, options_get_logical, options_get_integer, options_get_string, options_get_real, &
                                   options_get_array_size
   use io_server_client_mod, only : ARRAY_FIELD_TYPE, SCALAR_FIELD_TYPE, MAP_FIELD_TYPE, INTEGER_DATA_TYPE, BOOLEAN_DATA_TYPE, &
        STRING_DATA_TYPE, FLOAT_DATA_TYPE, DOUBLE_DATA_TYPE, definition_description_type, field_description_type
   use q_indices_mod, only : get_number_active_q_indices
+  use netcdf, only : NF90_DOUBLE, NF90_REAL
   implicit none
 
 #ifndef TEST_MODE
@@ -94,7 +94,7 @@ module configuration_parser_mod
 
   type io_configuration_file_writer_type
      character(len=STRING_LENGTH) :: file_name, title
-     integer :: number_of_contents, write_timestep_frequency
+     integer :: number_of_contents, write_timestep_frequency, write_precision
      real :: write_time_frequency
      logical :: write_on_model_time, write_on_terminate, include_in_io_state_write
      type(io_configuration_file_writer_facet_type), dimension(:), allocatable :: contents     
@@ -686,6 +686,19 @@ contains
     else
       building_config%file_writers(current_building_file_writer)%include_in_io_state_write=.true.
     end if
+
+    field_index=get_field_index_from_name(attribute_names, "write_precision")
+    if (field_index .gt. 0) then
+      building_config%file_writers(current_building_file_writer)%write_precision=&
+           merge(NF90_REAL, NF90_DOUBLE, &
+                 conv_to_uppercase(retrieve_string_value(attribute_values(field_index), STRING_DATA_TYPE)) == "FLOAT")
+      call log_master_newline()
+      call log_master_log(LOG_INFO, "Data will be written in FLOAT precision for file: "//&
+                   trim(building_config%file_writers(current_building_file_writer)%file_name))
+    else
+      building_config%file_writers(current_building_file_writer)%write_precision = NF90_DOUBLE
+    end if
+
     
     building_config%file_writers(current_building_file_writer)%number_of_contents=0
     allocate(building_config%file_writers(current_building_file_writer)%contents(DATA_SIZE_STRIDE))    

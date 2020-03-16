@@ -10,6 +10,7 @@ module profile_diagnostics_mod
   use saturation_mod, only: qsaturation
   use logging_mod, only : LOG_ERROR, log_master_log  
   use def_tvd_diagnostic_terms, only: tvd_dgs_terms, allocate_tvd_diagnostic_terms
+  use conversions_mod, only : conv_to_uppercase
 
   implicit none
 
@@ -249,10 +250,10 @@ contains
        endif
 
        ! arrange and allocate cloud fraction diagnostics...3d mask is optional
-       cloud_mask_method =                                                         &
-           options_get_string(current_state%options_database, "cloud_mask_method")
-       if (.not. (trim(cloud_mask_method) == "DEFAULT"   .or.                      &
-                  trim(cloud_mask_method) == "SOCRATES"      ) )  then
+       cloud_mask_method = conv_to_uppercase(                                      &
+           options_get_string(current_state%options_database, "cloud_mask_method"))
+       if (.not. (cloud_mask_method == "DEFAULT"   .or.                      &
+                  cloud_mask_method == "SOCRATES"      ) )  then
          call log_master_log(LOG_ERROR,                                            &
           "Requested cloud_mask_method is invalid.  Check profile_diagnostics.F90") 
        end if ! cloud_mask_method validity check
@@ -274,7 +275,7 @@ contains
   subroutine timestep_callback(current_state)
     type(model_state_type), target, intent(inout) :: current_state
 
-    integer :: k, i, iq_tmp, km1, kp1, icol, jcol
+    integer :: k, i, iq_tmp, icol, jcol
     real(kind=DEFAULT_PRECISION) :: cltop_col, clbas_col, qv, qc, TdegK, Pmb &
          , qs, exner
     real(kind=DEFAULT_PRECISION) :: uprime_w_local, vprime_w_local &
@@ -1143,9 +1144,8 @@ contains
         tempi = current_state%q(iqi)%data(k, jcol, icol)
 
       !> Check cloud_mask_method and modify as needed
-
       !> The SOCRATES method considers rain, snow, and graupel.
-      if (trim(cloud_mask_method) == "SOCRATES") then
+      if (cloud_mask_method == "SOCRATES") then
         if (iqr > 0) &
           templ = templ + rainfac  * current_state%q(iqr)%data(k, jcol, icol)
         if (iqs > 0) &
@@ -1156,7 +1156,7 @@ contains
 
       !> Work out cloud fractions
       tempt = templ + tempi
-      if (trim(cloud_mask_method) == "SOCRATES") then
+      if (cloud_mask_method == "SOCRATES") then
         cloud_present = (tempt > EPSILON(tempt))
       else ! DEFAULT
         cloud_present = (templ > qlcrit .or. tempi > qicrit .or. (templ+tempi) > qlcrit)

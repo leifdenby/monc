@@ -67,6 +67,13 @@
   <field name="tend_u_coriolis_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
   <field name="tend_v_coriolis_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
 
+  <field name="tend_tabs_socrates_3d_longwave_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
+  <field name="tend_tabs_socrates_3d_shortwave_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
+  <field name="tend_tabs_socrates_3d_total_radiative_heating_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
+
+  <field name="tend_th_lwrad_exponential_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
+  <field name="tend_tabs_lwrad_exponential_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
+
   <field name="tend_th_simplecloud_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
   <field name="tend_qv_simplecloud_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
   <field name="tend_ql_simplecloud_3d_local" type="array" data_type="double" size="z,y,x" collective=true optional=true/>
@@ -159,6 +166,13 @@
 
   <member name="tend_u_coriolis_3d_local"/>
   <member name="tend_v_coriolis_3d_local"/>
+
+  <member name="tend_tabs_socrates_3d_longwave_local"/>
+  <member name="tend_tabs_socrates_3d_shortwave_local"/>
+  <member name="tend_tabs_socrates_3d_total_radiative_heating_local"/>
+
+  <member name="tend_th_lwrad_exponential_3d_local"/>
+  <member name="tend_tabs_lwrad_exponential_3d_local"/>
 
   <member name="tend_th_simplecloud_3d_local"/>
   <member name="tend_qv_simplecloud_3d_local"/>

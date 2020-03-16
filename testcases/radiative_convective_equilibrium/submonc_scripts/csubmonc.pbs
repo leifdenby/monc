@@ -1,10 +1,10 @@
 #!/bin/bash --login
-#PBS -N wiwwiwi
+#PBS -N merge_dev
 #PBS -l select=1
 #PBS -l walltime=00:20:00
 #PBS -j oe
 #PBS -P nexcs-n06
-#PBS -q nexcs
+#PBS -q development
 
 
 ##############################################################
@@ -29,7 +29,7 @@ export STDOUT_DIR=monc_stdout
 export CP_DIR=checkpoint_files
 export RUN_NAME=RCE_dump_
 export NPES=np
-export MAX_CONTINUATION_RUNS=4
+export MAX_CONTINUATION_RUNS=10
 
 ulimit -c unlimited
 

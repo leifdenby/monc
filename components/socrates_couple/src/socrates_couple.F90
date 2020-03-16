@@ -53,6 +53,11 @@ module socrates_couple_mod
   type (str_merge_atm) :: merge_fields
   type (str_socrates_options) :: socrates_opt
   type (str_socrates_derived_fields) :: socrates_derived_fields
+  ! Tendency diagnostic variables
+  real(kind=DEFAULT_PRECISION), dimension(:,:,:), allocatable :: tend_3d_tabs_lw, tend_3d_tabs_sw, tend_3d_tabs_total
+  real(kind=DEFAULT_PRECISION), dimension(:),     allocatable :: tend_pr_tot_th_lw,    tend_pr_tot_tabs_lw,   &
+                                                                 tend_pr_tot_th_sw,    tend_pr_tot_tabs_sw,   &
+                                                                 tend_pr_tot_th_total, tend_pr_tot_tabs_total
 
   integer :: diagnostic_generation_frequency
 
@@ -71,7 +76,7 @@ contains
     socrates_couple_get_descriptor%field_value_retrieval=>field_value_retrieval_callback
     socrates_couple_get_descriptor%field_information_retrieval=>field_information_retrieval_callback
     
-    allocate(socrates_couple_get_descriptor%published_fields(14))
+    allocate(socrates_couple_get_descriptor%published_fields(14+3+6))
     
     socrates_couple_get_descriptor%published_fields(1)="flux_up_shortwave"
     socrates_couple_get_descriptor%published_fields(2)="flux_down_shortwave"
@@ -87,6 +92,17 @@ contains
     socrates_couple_get_descriptor%published_fields(12)="shortwave_heating_rate"
     socrates_couple_get_descriptor%published_fields(13)="longwave_heating_rate"
     socrates_couple_get_descriptor%published_fields(14)="total_radiative_heating_rate"    
+
+    socrates_couple_get_descriptor%published_fields(15)="tend_tabs_socrates_3d_longwave_local"
+    socrates_couple_get_descriptor%published_fields(16)="tend_tabs_socrates_3d_shortwave_local"
+    socrates_couple_get_descriptor%published_fields(17)="tend_tabs_socrates_3d_total_radiative_heating_local"
+
+    socrates_couple_get_descriptor%published_fields(18)="tend_th_socrates_profile_longwave_total_local"
+    socrates_couple_get_descriptor%published_fields(19)="tend_th_socrates_profile_shortwave_total_local"
+    socrates_couple_get_descriptor%published_fields(20)="tend_th_socrates_profile_total_radiative_heating_total_local"
+    socrates_couple_get_descriptor%published_fields(21)="tend_tabs_socrates_profile_longwave_total_local"
+    socrates_couple_get_descriptor%published_fields(22)="tend_tabs_socrates_profile_shortwave_total_local"
+    socrates_couple_get_descriptor%published_fields(23)="tend_tabs_socrates_profile_total_radiative_heating_total_local"
        
   end function socrates_couple_get_descriptor
 
@@ -105,19 +121,26 @@ contains
     y_nohalos=current_state%local_grid%size(Y_INDEX)
     x_nohalos=current_state%local_grid%size(X_INDEX) 
     
-    !if (.not. current_state%continuation_run) then
-       ! Allocated the longwave and shortwave heating rates.They need to be added to
-       ! the dump
-    !   allocate(current_state%sth_lw%data(k_top, y_local, x_local))
-    !   allocate(current_state%sth_sw%data(k_top, y_local, x_local))
-    !   current_state%sth_lw%data(:,:,:) = 0.0
-    !   current_state%sth_sw%data(:,:,:) = 0.0
-       ! Allocate downward surface fluxes
-    !   allocate(current_state%sw_down_surf(y_local, x_local))
-    !   allocate(current_state%lw_down_surf(y_local, x_local))
-    !   current_state%sw_down_surf(:, :) = 0.0
-    !   current_state%lw_down_surf(:, :) = 0.0
-    !endif
+    ! Since these current_state variables are optional, it is possible for the model to be run without them
+    ! and then reconfigured with this component enabled.  In that case, they will not be found in the checkpoint,
+    ! and they will not be allocated, but they will still be needed.
+    ! So in all cases, if this component is enabled, we make certain these are allocated.
+    if (.not. allocated(current_state%sth_lw%data) ) then
+      allocate(current_state%sth_lw%data(k_top, y_local, x_local))
+      current_state%sth_lw%data(:,:,:) = 0.0_DEFAULT_PRECISION
+    end if
+    if (.not. allocated(current_state%sth_sw%data) ) then
+      allocate(current_state%sth_sw%data(k_top, y_local, x_local))
+      current_state%sth_sw%data(:,:,:) = 0.0_DEFAULT_PRECISION
+    end if
+    if (.not. allocated(current_state%sw_down_surf) ) then
+      allocate(current_state%sw_down_surf(y_local, x_local))
+      current_state%sw_down_surf(:, :) = 0.0_DEFAULT_PRECISION
+    end if
+    if (.not. allocated(current_state%lw_down_surf) ) then
+      allocate(current_state%lw_down_surf(y_local, x_local))
+      current_state%lw_down_surf(:, :) = 0.0_DEFAULT_PRECISION
+    end if
 
     ! allocate the density and radiation factor needed for heating rates
     allocate(socrates_derived_fields%density_factor(k_top))
@@ -162,6 +185,29 @@ contains
     socrates_derived_fields%swrad_hr(:,:,:) = 0.0
     socrates_derived_fields%lwrad_hr(:,:,:) = 0.0
     socrates_derived_fields%totrad_hr(:,:,:) = 0.0
+
+    ! Allocate 3d tendency fields upon availability
+    !  using 'k_top' for these diagnostics would be problematic if the Z_INDEX halos were ever nonzero.
+    allocate( tend_3d_tabs_lw(k_top,y_nohalos,x_nohalos))
+    allocate( tend_3d_tabs_sw(k_top,y_nohalos,x_nohalos))
+    allocate( tend_3d_tabs_total(k_top,y_nohalos,x_nohalos))
+    allocate( tend_pr_tot_th_lw(k_top))
+    allocate( tend_pr_tot_th_sw(k_top))
+    allocate( tend_pr_tot_th_total(k_top))
+    allocate( tend_pr_tot_tabs_lw(k_top))
+    allocate( tend_pr_tot_tabs_sw(k_top))
+    allocate( tend_pr_tot_tabs_total(k_top))
+
+    ! Initialise allocates tendency variable to 0.
+    tend_3d_tabs_lw(:,:,:) = 0.0_DEFAULT_PRECISION
+    tend_3d_tabs_sw(:,:,:) = 0.0_DEFAULT_PRECISION
+    tend_3d_tabs_total(:,:,:) = 0.0_DEFAULT_PRECISION
+    tend_pr_tot_th_lw(:) = 0.0_DEFAULT_PRECISION
+    tend_pr_tot_th_sw(:) = 0.0_DEFAULT_PRECISION
+    tend_pr_tot_th_total(:) = 0.0_DEFAULT_PRECISION
+    tend_pr_tot_tabs_lw(:) = 0.0_DEFAULT_PRECISION
+    tend_pr_tot_tabs_sw(:) = 0.0_DEFAULT_PRECISION
+    tend_pr_tot_tabs_total(:) = 0.0_DEFAULT_PRECISION
 
     ! derive density and radiation factor for heating rate calculation
     socrates_derived_fields%density_factor(1) =  0.0 
@@ -401,16 +447,68 @@ contains
          current_state%sth_lw%data(:, jcol, icol) + &
          current_state%sth_sw%data(:, jcol, icol)
 
+    ! Zero profile tendency totals on first instance in the sum
+    if (current_state%first_nonhalo_timestep_column) then
+      tend_pr_tot_th_lw(:) = 0.0_DEFAULT_PRECISION
+      tend_pr_tot_th_sw(:) = 0.0_DEFAULT_PRECISION
+      tend_pr_tot_th_total(:) = 0.0_DEFAULT_PRECISION
+      tend_pr_tot_tabs_lw(:) = 0.0_DEFAULT_PRECISION
+      tend_pr_tot_tabs_sw(:) = 0.0_DEFAULT_PRECISION
+      tend_pr_tot_tabs_total(:) = 0.0_DEFAULT_PRECISION
+    endif  ! zero totals
+
+    if (.not. current_state%halo_column) then
+      call compute_component_tendencies(current_state, icol, jcol, target_x_index, target_y_index)
+    end if
+
   end subroutine timestep_callback
 
   subroutine finalisation_callback(current_state)
-    
     type(model_state_type), target, intent(inout) :: current_state
 
 !    deallocate(merge_fields%t, merge_fields%qv, &
 !         ql_socrates, qi_socrates)
+    if (allocated(tend_3d_tabs_lw)) deallocate(tend_3d_tabs_lw)
+    if (allocated(tend_3d_tabs_sw)) deallocate(tend_3d_tabs_sw)
+    if (allocated(tend_3d_tabs_total)) deallocate(tend_3d_tabs_total)
+
+    if (allocated(tend_pr_tot_th_lw)) deallocate(tend_pr_tot_th_lw)
+    if (allocated(tend_pr_tot_th_sw)) deallocate(tend_pr_tot_th_sw)
+    if (allocated(tend_pr_tot_th_total)) deallocate(tend_pr_tot_th_total)
+    if (allocated(tend_pr_tot_tabs_lw)) deallocate(tend_pr_tot_tabs_lw)
+    if (allocated(tend_pr_tot_tabs_sw)) deallocate(tend_pr_tot_tabs_sw)
+    if (allocated(tend_pr_tot_tabs_total)) deallocate(tend_pr_tot_tabs_total)
 
   end subroutine finalisation_callback
+
+   !> Computation of component tendencies
+  !! @param current_state Current model state
+  !! @param cxn The current slice, x, index
+  !! @param cyn The current column, y, index.
+  !! @param txn target_x_index
+  !! @param tyn target_y_index
+  subroutine compute_component_tendencies(current_state, cxn, cyn, txn, tyn)
+    type(model_state_type), target, intent(inout) :: current_state
+    integer, intent(in) ::  cxn, cyn, txn, tyn
+
+    ! Calculate change in tendency due to component
+    tend_3d_tabs_lw(:,tyn,txn)    = current_state%sth_lw%data(:,cyn,cxn) &
+                                    * current_state%global_grid%configuration%vertical%rprefrcp(:)
+    tend_3d_tabs_sw(:,tyn,txn)    = current_state%sth_sw%data(:,cyn,cxn) &
+                                    * current_state%global_grid%configuration%vertical%rprefrcp(:)
+    tend_3d_tabs_total(:,tyn,txn) = tend_3d_tabs_lw(:,tyn,txn) + tend_3d_tabs_sw(:,tyn,txn)
+
+   ! Add local tendency fields to the profile total
+    tend_pr_tot_th_lw(:) = tend_pr_tot_th_lw(:) + current_state%sth_lw%data(:,cyn,cxn)
+    tend_pr_tot_th_sw(:) = tend_pr_tot_th_sw(:) + current_state%sth_sw%data(:,cyn,cxn)
+    tend_pr_tot_th_total(:) = tend_pr_tot_th_total(:) &
+                              + current_state%sth_lw%data(:,cyn,cxn) + current_state%sth_sw%data(:,cyn,cxn)
+
+    tend_pr_tot_tabs_lw(:) = tend_pr_tot_tabs_lw(:) + tend_3d_tabs_lw(:,tyn,txn)
+    tend_pr_tot_tabs_sw(:) = tend_pr_tot_tabs_sw(:) + tend_3d_tabs_sw(:,tyn,txn)
+    tend_pr_tot_tabs_total(:) = tend_pr_tot_tabs_total(:) + tend_3d_tabs_total(:,tyn,txn)
+
+  end subroutine compute_component_tendencies
 
 !> Field information retrieval callback, this returns information for a specific components published field
 !! @param current_state Current model state
@@ -418,26 +516,40 @@ contains
 !! @param field_information Populated with information about the field
   subroutine field_information_retrieval_callback(current_state, name, field_information)
     type(model_state_type), target, intent(inout) :: current_state
-   character(len=*), intent(in) :: name
-   type(component_field_information_type), intent(out) :: field_information
+    character(len=*), intent(in) :: name
+    type(component_field_information_type), intent(out) :: field_information
+    integer :: strcomp
 
+   strcomp = INDEX(name, "_socrates_3d_")
    if ( name .eq. "flux_up_shortwave" .or. name .eq. "flux_down_shortwave"  .or.  &
         name .eq. "flux_up_longwave" .or. name .eq. "flux_down_longwave" .or.     &
         name .eq. "shortwave_heating_rate" .or. name .eq. "longwave_heating_rate" &
-        .or. name .eq. "total_radiative_heating_rate") then
+        .or. name .eq. "total_radiative_heating_rate"                             &
+        .or. strcomp .ne. 0) then
       field_information%field_type=COMPONENT_ARRAY_FIELD_TYPE
       field_information%number_dimensions=3
       field_information%dimension_sizes(1)=current_state%local_grid%size(Z_INDEX)
       field_information%dimension_sizes(2)=current_state%local_grid%size(Y_INDEX)
       field_information%dimension_sizes(3)=current_state%local_grid%size(X_INDEX)
       field_information%data_type=COMPONENT_DOUBLE_DATA_TYPE
-   else
+   end if
+
+   strcomp = INDEX(name, "surface_") + INDEX(name, "toa_")
+   if (strcomp .ne. 0) then
       field_information%field_type=COMPONENT_ARRAY_FIELD_TYPE
       field_information%number_dimensions=2
       field_information%dimension_sizes(1)=current_state%local_grid%size(Y_INDEX)
       field_information%dimension_sizes(2)=current_state%local_grid%size(X_INDEX)
       field_information%data_type=COMPONENT_DOUBLE_DATA_TYPE
-   endif
+   end if
+
+   strcomp = INDEX(name, "_socrates_profile_")
+   if (strcomp .ne. 0) then
+      field_information%field_type=COMPONENT_ARRAY_FIELD_TYPE
+      field_information%number_dimensions=1
+      field_information%dimension_sizes(1)=current_state%local_grid%size(Z_INDEX)
+      field_information%data_type=COMPONENT_DOUBLE_DATA_TYPE
+   end if
 
    field_information%enabled=.true.
 
@@ -455,73 +567,81 @@ contains
    integer :: k
 
    ! 3D radiative flux and heating rates
-   if (name .eq. "flux_up_shortwave") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%flux_up_sw(:,:,:)
+   if      (name .eq. "flux_up_shortwave") then
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%flux_up_sw)
    else if (name .eq. "flux_down_shortwave") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%flux_down_sw(:,:,:)
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%flux_down_sw)
    else if (name .eq. "flux_up_longwave") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%flux_up_lw(:,:,:)
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%flux_up_lw)
    else if (name .eq. "flux_down_longwave") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%flux_down_lw(:,:,:)
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%flux_down_lw)
    else if (name .eq. "shortwave_heating_rate") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%swrad_hr(:,:,:)
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%swrad_hr)
    else if (name .eq. "longwave_heating_rate") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%lwrad_hr(:,:,:)
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%lwrad_hr)
    else if (name .eq. "total_radiative_heating_rate") then
-      allocate(field_value%real_3d_array(current_state%local_grid%size(Z_INDEX),  &
-           current_state%local_grid%size(Y_INDEX),                                &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_3d_array(:,:,:) = socrates_derived_fields%totrad_hr(:,:,:)
+     call set_published_field_value(field_value, real_3d_field = socrates_derived_fields%totrad_hr)
    !
    ! 2D radiative fluxes   
    else if (name .eq. "toa_up_longwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%toa_up_longwave(:,:)
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%toa_up_longwave)
    else if (name .eq. "surface_down_longwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%surface_down_longwave(:,:) 
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%surface_down_longwave)
    else if (name .eq. "surface_up_longwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%surface_up_longwave(:,:)
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%surface_up_longwave)
    else if (name .eq. "toa_up_shortwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%toa_up_shortwave(:,:)
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%toa_up_shortwave)
    else if (name .eq. "toa_down_shortwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%toa_down_shortwave(:,:)
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%toa_down_shortwave)
    else if (name .eq. "surface_down_shortwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%surface_down_shortwave(:,:) 
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%surface_down_shortwave)
    else if (name .eq. "surface_up_shortwave") then
-      allocate(field_value%real_2d_array(current_state%local_grid%size(Y_INDEX),   &
-           current_state%local_grid%size(X_INDEX)))
-      field_value%real_2d_array(:,:) = socrates_derived_fields%surface_up_shortwave(:,:) 
+     call set_published_field_value(field_value, real_2d_field = socrates_derived_fields%surface_up_shortwave)
+   !
+   ! Additional 3d tendencies
+   else if (name .eq. "tend_tabs_socrates_3d_longwave_local") then
+     call set_published_field_value(field_value, real_3d_field = tend_3d_tabs_lw)
+   else if (name .eq. "tend_tabs_socrates_3d_shortwave_local") then
+     call set_published_field_value(field_value, real_3d_field = tend_3d_tabs_sw)
+   else if (name .eq. "tend_tabs_socrates_3d_total_radiative_heating_local") then
+     call set_published_field_value(field_value, real_3d_field = tend_3d_tabs_total)
+   !
+   ! Profile tendencies
+   else if (name .eq. "tend_th_socrates_profile_longwave_total_local") then
+     call set_published_field_value(field_value, real_1d_field = tend_pr_tot_th_lw)
+   else if (name .eq. "tend_th_socrates_profile_shortwave_total_local") then
+     call set_published_field_value(field_value, real_1d_field = tend_pr_tot_th_sw)
+   else if (name .eq. "tend_th_socrates_profile_total_radiative_heating_total_local") then
+     call set_published_field_value(field_value, real_1d_field = tend_pr_tot_th_total)
+   else if (name .eq. "tend_tabs_socrates_profile_longwave_total_local") then
+     call set_published_field_value(field_value, real_1d_field = tend_pr_tot_tabs_lw)
+   else if (name .eq. "tend_tabs_socrates_profile_shortwave_total_local") then
+     call set_published_field_value(field_value, real_1d_field = tend_pr_tot_tabs_sw)
+   else if (name .eq. "tend_tabs_socrates_profile_total_radiative_heating_total_local") then
+     call set_published_field_value(field_value, real_1d_field = tend_pr_tot_tabs_total)
+
    end if
 
  end subroutine field_value_retrieval_callback
+
+  !> Sets the published field value from the temporary diagnostic values held by this component.
+  !! @param field_value Populated with the value of the field
+  !! @param real_1d_field Optional one dimensional real of values to publish
+  !! @param real_2d_field Optional two dimensional real of values to publish
+  subroutine set_published_field_value(field_value, real_1d_field, real_2d_field, real_3d_field)
+    type(component_field_value_type), intent(inout) :: field_value
+    real(kind=DEFAULT_PRECISION), dimension(:), optional :: real_1d_field
+    real(kind=DEFAULT_PRECISION), dimension(:,:), optional :: real_2d_field
+    real(kind=DEFAULT_PRECISION), dimension(:,:,:), optional :: real_3d_field
+
+    if (present(real_1d_field)) then
+      allocate(field_value%real_1d_array(size(real_1d_field)), source=real_1d_field)
+    else if (present(real_2d_field)) then
+      allocate(field_value%real_2d_array(size(real_2d_field, 1), size(real_2d_field, 2)), source=real_2d_field)
+    else if (present(real_3d_field)) then
+      allocate(field_value%real_3d_array(size(real_3d_field, 1), size(real_3d_field, 2), size(real_3d_field, 3)), &
+               source=real_3d_field)
+    end if
+  end subroutine set_published_field_value
 
 end module socrates_couple_mod

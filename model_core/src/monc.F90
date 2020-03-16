@@ -11,7 +11,7 @@ module monc_mod
        display_callbacks_in_order_at_each_stage
   use timestepper_mod, only : init_timestepper, timestep, finalise_timestepper
   use logging_mod, only : LOG_INFO, LOG_WARN, LOG_ERROR, LOG_DEBUG, log_log, log_get_logging_level, log_set_logging_level, &
-       log_master_log, initialise_logging
+       log_master_log, initialise_logging, log_master_newline
   use optionsdatabase_mod, only : load_command_line_into_options_database, options_get_integer, options_has_key, &
        options_get_string, options_get_logical, options_add, options_remove_key
   use configuration_file_parser_mod, only : parse_configuration_file
@@ -67,30 +67,33 @@ contains
     real(kind=DEFAULT_PRECISION) :: reconfig_initial_time
     character(len=LONG_STRING_LENGTH) :: io_server_config_file
 
-    reconfig_initial_time = 0.0_DEFAULT_PRECISION
-    
+    ! Initialise MPI
     selected_threading_mode=get_mpi_threading_mode()
     call mpi_init_thread(selected_threading_mode, provided_threading, ierr)
+
+    call init_data_defn()
+
+    ! Set up the logging with comm world PIDs initially for logging from the configuration parsing
+    call mpi_comm_rank(MPI_COMM_WORLD, myrank, ierr)
+    call initialise_logging(myrank)
+    call log_master_log(LOG_INFO, "Starting MONC...")
+    call log_master_newline()
+
     if (selected_threading_mode .gt. provided_threading) then
       call log_master_log(LOG_ERROR, "You have selected to thread at level '"//&
            trim(mpi_threading_level_to_string(selected_threading_mode))//&
            "' but the maximum level your MPI implementation can provide is '"//&
            trim(mpi_threading_level_to_string(provided_threading))//"'")
-    end if    
+    end if
+
+    ! Load model configuration
+    reconfig_initial_time = 0.0_DEFAULT_PRECISION ! set locally, should precede load_model_configuration
     call load_model_configuration(state, state%options_database, io_continuation, reconfig_initial_time)
-
-    state%io_server_enabled=determine_if_io_server_enabled(state%options_database)
-    
-    call init_data_defn()
-    ! Set up the logging with comm world PIDs initially for logging from the configuration parsing
-    call mpi_comm_rank(MPI_COMM_WORLD, myrank, ierr)
-    call initialise_logging(myrank)
-    
     call log_set_logging_level(options_get_integer(state%options_database, "logging"))
+    call perform_options_compatibility_checks(state%options_database)
 
-    ! Check options_database for conflicts
-    !call perform_options_compatibility_checks(state%options_database)
-
+    ! Check on io_server settings and start MONC
+    state%io_server_enabled=determine_if_io_server_enabled(state%options_database)
     if (state%io_server_enabled) then
       call mpi_comm_size(MPI_COMM_WORLD, size, ierr)
       if (size==1) call log_log(LOG_ERROR, &
@@ -139,6 +142,9 @@ contains
     if (options_has_key(options_database, "config")) then
       state%continuation_run=.false.
       io_continuation=.false.
+      call log_master_log(LOG_INFO, "This cycle is a cold start using '"//&
+                          trim(options_get_string(options_database, "config"))//"'")
+      call log_master_newline()
       call parse_configuration_file(options_database, options_get_string(options_database, "config"))
     ! Reads configuration from mcf and data from netcdf checkpoint.  Calling it reconfig allows this startup option.
     ! This is a continuation run for MONCs, but not for the IOserver.
@@ -150,6 +156,10 @@ contains
         call extract_time_from_checkpoint_file(options_get_string(options_database, "checkpoint"), reconfig_initial_time)
         state%retain_model_time = .true.
       end if
+      call log_master_log(LOG_INFO, "This cycle is a reconfigured start using '"//&
+                          trim(options_get_string(options_database, "reconfig"))//"' at time: "//&
+                          trim(conv_to_string(reconfig_initial_time)))
+      call log_master_newline()
       call parse_configuration_file(options_database, options_get_string(options_database, "reconfig"))
     ! Continuation
     else if (options_has_key(options_database, "checkpoint")) then
@@ -157,6 +167,9 @@ contains
       io_continuation=.true.
       call parse_configuration_checkpoint_netcdf(options_database, &
            options_get_string(options_database, "checkpoint"), MPI_COMM_WORLD)
+      call log_master_log(LOG_INFO, "This cycle is a continuation using '"//&
+                          trim(options_get_string(options_database, "config"))//"'")
+      call log_master_newline()
     else
       call log_master_log(LOG_ERROR, "You must either provide a configuration file or checkpoint to restart from")
       call mpi_barrier(MPI_COMM_WORLD) ! All other processes barrier here to ensure 0 displays the message before quit
@@ -164,7 +177,7 @@ contains
     end if
 
     ! Reload command line arguments to override any stuff in the configuration files
-    call load_command_line_into_options_database(options_database)
+    call load_command_line_into_options_database(options_database, .true.)
 
     ! In the case of reconfig, we won't want it to do this again on a later continuation cycle, so we'll remove
     ! the reconfig key, after recording the source file as config.

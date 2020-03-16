@@ -89,6 +89,7 @@ contains
       writer_entries(i)%filename=io_configuration%file_writers(i)%file_name
       writer_entries(i)%title=io_configuration%file_writers(i)%title
       writer_entries(i)%write_on_terminate=io_configuration%file_writers(i)%write_on_terminate
+      writer_entries(i)%write_precision=io_configuration%file_writers(i)%write_precision
       writer_entries(i)%include_in_io_state_write=io_configuration%file_writers(i)%include_in_io_state_write
       call check_thread_status(forthread_mutex_init(writer_entries(i)%trigger_and_write_mutex, -1))
       call check_thread_status(forthread_mutex_init(writer_entries(i)%num_fields_to_write_mutex, -1))

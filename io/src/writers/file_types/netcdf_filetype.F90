@@ -1011,7 +1011,7 @@ contains
     do i=1, size(file_writer_information%contents)
       if (.not. file_writer_information%contents(i)%enabled) cycle
       if (file_writer_information%contents(i)%data_type == DOUBLE_DATA_TYPE) then
-        data_type=NF90_DOUBLE
+        data_type = file_writer_information%write_precision
       else if (file_writer_information%contents(i)%data_type == INTEGER_DATA_TYPE) then
         data_type=NF90_INT
       else if (file_writer_information%contents(i)%data_type == STRING_DATA_TYPE) then
