@@ -331,7 +331,7 @@ contains
     character(len=STRING_LENGTH), dimension(:), intent(in) :: field_values
 
     integer :: count_to_write(2), start_pos(2)
-    integer :: pos, string_size
+    integer :: pos
     character(len=STRING_LENGTH) :: dum_string
 
     count_to_write(2)=1    ! element count

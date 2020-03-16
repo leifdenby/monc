@@ -400,7 +400,6 @@ contains
 
     integer :: k, j, i
     integer :: inc     ! loop increment variable
-    integer :: local_y, locaL_x, target_x_index, target_y_index
     logical :: calculate_diagnostics
 
     calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.     &

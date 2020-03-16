@@ -370,7 +370,6 @@ contains
     integer, optional, intent(in) :: fourth_dim_loc
 
     integer :: start(5), count(5), i, map(5)
- integer :: variable_id, nd
 
     if (allocated(field%data)) deallocate(field%data)
     allocate(field%data(local_grid%size(Z_INDEX) + local_grid%halo_size(Z_INDEX) * 2, local_grid%size(Y_INDEX) + &
@@ -449,7 +448,7 @@ contains
 
     integer :: z_size, i
     type(q_metadata_type) :: q_metadata
-    character(len=STRING_LENGTH) :: q_field_name, zq_field_name
+    character(len=STRING_LENGTH) :: q_field_name
 
     call check_status(nf90_inquire_dimension(ncid, z_dim_id, len=z_size))
     if (does_field_exist(ncid, OLUBAR)) then
@@ -523,7 +522,7 @@ contains
     type(model_state_type), intent(inout) :: current_state
     integer, intent(in) :: ncid, z_dim_id
 
-    integer :: z_size, i
+    integer :: z_size
 
     call check_status(nf90_inquire_dimension(ncid, z_dim_id, len=z_size))
     if (does_field_exist(ncid, WUP)) then

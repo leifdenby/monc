@@ -210,7 +210,7 @@ module coriolis_mod
   !! @param current_state The current model state
   subroutine timestep_callback(current_state)
     type(model_state_type), target, intent(inout) :: current_state
-    integer :: local_y, locaL_x, k, target_x_index, target_y_index
+    integer :: local_y, local_x, k, target_x_index, target_y_index
     logical :: calculate_diagnostics
 
     calculate_diagnostics = ((current_state%time_basis .and. current_state%timestep == current_state%sample_timestep) .or.      &

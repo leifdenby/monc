@@ -242,7 +242,7 @@ contains
   subroutine timestep_callback(current_state)
     type(model_state_type), target, intent(inout) :: current_state
 
-    integer :: local_y, locaL_x, k, target_x_index, target_y_index
+    integer :: local_y, local_x, k, target_x_index, target_y_index
     real(kind=DEFAULT_PRECISION), dimension(current_state%local_grid%size(Z_INDEX)) :: tau12, tau12_ym1, tau12m1, &
          tau11, tau22, tau22_yp1, tau33, tau23_ym1, tau11p1, tau13, tau13m1, tau23
     logical :: calculate_diagnostics
